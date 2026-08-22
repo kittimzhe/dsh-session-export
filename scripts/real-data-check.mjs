@@ -7,7 +7,8 @@
  *
  * Usage: node scripts/real-data-check.mjs <path-to-session.jsonl.zstd> [out.md]
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { zstdDecompressSync } from 'node:zlib'
 import { decodeStorageRecord } from '@deepseek-ai/dsh-session'
 import {
@@ -95,6 +96,7 @@ const inputDoc = {
 const md = renderMarkdown(inputDoc)
 const json = renderJson(inputDoc)
 const outBase = process.argv[3] ?? '/tmp/dsh-transcript-real.md'
+mkdirSync(dirname(outBase), { recursive: true })
 writeFileSync(outBase, md)
 writeFileSync(outBase.replace(/\.md$/, '.json'), json)
 console.log(`wrote: ${outBase} (${md.length} chars) + .json (${json.length} chars)`)
