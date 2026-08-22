@@ -1,0 +1,6 @@
+# The dsh-session-export bundle patch: mounts the /transcript command.
+# Applied as one insert; requires `commands` and `sessionQuery` services,
+# which the shipped dsh-base / web bundles already provide.
+- insert:
+    - id: session-export
+      name: 'dsh-session-export'
