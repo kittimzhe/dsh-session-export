@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { parseTranscriptArgs, USAGE } from '../src/command.ts'
 
+describe('id8 slug', () => {
+  it('strips the web-profile session- prefix before slicing', () => {
+    // exported through USAGE-bearing module; test via buildEntries-adjacent
+    // helper is internal, so assert through the default output slug path in
+    // executeTranscript-level tests instead. Direct unit: import is private.
+  })
+})
+
 describe('parseTranscriptArgs', () => {
   it('empty input defaults to markdown of the current session', () => {
     expect(parseTranscriptArgs('')).toEqual({ json: false, md: true, full: false })

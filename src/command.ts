@@ -81,7 +81,9 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
 }
 
 function id8(id: string): string {
-  return id.slice(0, 8)
+  // Web-profile session ids carry a 'session-' prefix; strip it so the
+  // file slug keeps the meaningful uuid head instead of 'session-'.
+  return id.replace(/^session-/, '').slice(0, 8)
 }
 
 function timestampSlug(epochMs: number): string {
