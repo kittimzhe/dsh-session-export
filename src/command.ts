@@ -80,7 +80,7 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
   return args
 }
 
-function id8(id: string): string {
+export function id8(id: string): string {
   // Web-profile session ids carry a 'session-' prefix; strip it so the
   // file slug keeps the meaningful uuid head instead of 'session-'.
   return id.replace(/^session-/, '').slice(0, 8)

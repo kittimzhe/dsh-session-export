@@ -18,7 +18,7 @@ export const name = 'session-export'
 export const inject = ['commands', 'sessionQuery']
 
 export type { TranscriptConfig } from './command.ts'
-export { parseTranscriptArgs, USAGE, buildEntries, buildTotals, buildLogOnly } from './command.ts'
+export { parseTranscriptArgs, USAGE, buildEntries, buildTotals, buildLogOnly, id8 } from './command.ts'
 export { renderMarkdown, defaultMarkdownOptions } from './render/markdown.ts'
 export type { MarkdownRenderOptions } from './render/markdown.ts'
 export { renderJson } from './render/json.ts'

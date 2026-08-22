@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { parseTranscriptArgs, USAGE } from '../src/command.ts'
+import { parseTranscriptArgs, USAGE, id8 } from '../src/command.ts'
 
 describe('id8 slug', () => {
   it('strips the web-profile session- prefix before slicing', () => {
-    // exported through USAGE-bearing module; test via buildEntries-adjacent
-    // helper is internal, so assert through the default output slug path in
-    // executeTranscript-level tests instead. Direct unit: import is private.
+    expect(id8('session-ca62e005-4274-477b-bd56-9d9508edb040')).toBe('ca62e005')
+  })
+
+  it('slices ids without the prefix as-is', () => {
+    expect(id8('parent-session-id-1')).toBe('parent-s')
+    expect(id8('short')).toBe('short')
   })
 })
 

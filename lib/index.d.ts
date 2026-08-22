@@ -76,6 +76,7 @@ interface TranscriptArgs {
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseTranscriptArgs(rawInput: string): TranscriptArgs | string;
+declare function id8(id: string): string;
 /** Adapt append-origin surface events to renderer entries (drop nulls). */
 declare function buildEntries(events: readonly SessionEvent[]): TranscriptEntry[];
 /** Summarize log-only events for the --full appendix. */
@@ -130,4 +131,4 @@ declare const inject: string[];
 /** Plugin entry: mount the /transcript command. */
 declare function apply(ctx: Context, config?: TranscriptConfig): void;
 //#endregion
-export { type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type RenderInput, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, apply, buildEntries, buildLogOnly, buildTotals, defaultMarkdownOptions, inject, name, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderJson, renderMarkdown, renderToolDiff };
+export { type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type RenderInput, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, apply, buildEntries, buildLogOnly, buildTotals, defaultMarkdownOptions, id8, inject, name, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderJson, renderMarkdown, renderToolDiff };
