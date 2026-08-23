@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+[![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供人类可读的会话转录导出：`/transcript` 命令把会话的 Markdown（或 JSON）转录**直接写到 Host 文件系统**——不需要浏览器下载，也不解码原始日志。
 
 ## 为什么需要它
@@ -31,16 +33,16 @@
 
 ## 安装（树外插件）
 
-从 GitHub 安装（无需 npm 发布）：
-
-```sh
-dsh plugin --profile web add github:kittimzhe/dsh-session-export
-```
-
-或 npm 发布后：
+从 npm 安装：
 
 ```sh
 dsh plugin --profile web add dsh-session-export
+```
+
+或从 GitHub 安装：
+
+```sh
+dsh plugin --profile web add github:kittimzhe/dsh-session-export
 ```
 
 然后在 profile 的 `cordis.patch.yml` 中加一行（该行依赖 `commands` 与 `sessionQuery` 服务，shipped profile 均已挂载）：

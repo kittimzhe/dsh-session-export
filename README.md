@@ -2,6 +2,8 @@
 
 English | [中文](README.zh.md)
 
+[![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Human-readable session transcript export for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): the `/transcript` command writes a Markdown (and/or JSON) transcript of a session to a **host path** — no browser download, no raw-log decoding.
 
 ## Why
@@ -31,16 +33,16 @@ Like every `ctx.commands` command, `/transcript` runs on the human-command plane
 
 ## Install (out-of-tree plugin)
 
-From GitHub (no npm publish needed):
-
-```sh
-dsh plugin --profile web add github:kittimzhe/dsh-session-export
-```
-
-Or, once published to npm:
+From npm:
 
 ```sh
 dsh plugin --profile web add dsh-session-export
+```
+
+Or from GitHub:
+
+```sh
+dsh plugin --profile web add github:kittimzhe/dsh-session-export
 ```
 
 Then add to the profile's `cordis.patch.yml` (the row requires `commands` and `sessionQuery` services, which the shipped profiles already mount):
