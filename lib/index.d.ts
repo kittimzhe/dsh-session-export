@@ -91,6 +91,26 @@ interface TranscriptConfig {
   readonly resultCharLimit?: number;
 }
 //#endregion
+//#region src/archive.d.ts
+declare const ARCHIVE_USAGE = "Usage: /archive [--id <sessionId>] [--all] [--since <duration>] [--out <dir>] [--no-descendants]";
+interface ArchiveArgs {
+  readonly sessionId?: string;
+  readonly all: boolean;
+  readonly since?: number;
+  readonly outDir?: string;
+  readonly noDescendants: boolean;
+}
+interface ArchiveConfig {
+  /** Output directory used when `/archive` is run without `--out` (default `<cwd>/.dsh-archives`). */
+  readonly archiveDir?: string;
+  /** Include subagent descendants when archiving a single session (default true). */
+  readonly includeDescendants?: boolean;
+  /** Safety cap on one `/archive --all` run (default 100). */
+  readonly maxSessionsPerRun?: number;
+}
+/** Parse raw command input; returns args or a usage-error string. */
+declare function parseArchiveArgs(rawInput: string): ArchiveArgs | string;
+//#endregion
 //#region src/render/markdown.d.ts
 interface MarkdownRenderOptions {
   readonly argCharLimit: number;
@@ -125,10 +145,20 @@ declare function renderEditorDiff(args: unknown): string | null;
  */
 declare function renderToolDiff(toolName: string, args: unknown): string | null;
 //#endregion
+//#region src/util/zip.d.ts
+interface ZipEntry {
+  readonly name: string;
+  readonly data: Uint8Array;
+}
+/** Build one DEFLATE-compressed ZIP archive over the given entries. */
+declare function buildZip(entries: readonly ZipEntry[], nowMs?: number): Uint8Array;
+//#endregion
 //#region src/index.d.ts
 declare const name = "session-export";
 declare const inject: string[];
-/** Plugin entry: mount the /transcript command. */
-declare function apply(ctx: Context, config?: TranscriptConfig): void;
+/** Combined plugin configuration (flat, backward compatible with v0.1.0). */
+type SessionExportConfig = TranscriptConfig & ArchiveConfig;
+/** Plugin entry: mount the /transcript and /archive commands. */
+declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type RenderInput, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, apply, buildEntries, buildLogOnly, buildTotals, defaultMarkdownOptions, id8, inject, name, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderJson, renderMarkdown, renderToolDiff };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type RenderInput, SessionExportConfig, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, defaultMarkdownOptions, id8, inject, name, parseArchiveArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderJson, renderMarkdown, renderToolDiff };

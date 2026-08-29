@@ -12,3 +12,11 @@ export async function atomicWriteFile(path: string, content: string): Promise<vo
   await writeFile(tmp, content, 'utf8')
   await rename(tmp, path)
 }
+
+/** Binary variant of {@link atomicWriteFile} for ZIP payloads. */
+export async function atomicWriteBytes(path: string, data: Uint8Array): Promise<void> {
+  await mkdir(dirname(path), { recursive: true })
+  const tmp = `${path}.tmp-${process.pid}-${randomBytes(3).toString('hex')}`
+  await writeFile(tmp, data)
+  await rename(tmp, path)
+}

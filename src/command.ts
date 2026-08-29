@@ -170,7 +170,7 @@ export interface TranscriptConfig {
   readonly resultCharLimit?: number
 }
 
-const GENERATOR = 'dsh-session-export v0.1.0'
+const GENERATOR = 'dsh-session-export v0.2.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(
