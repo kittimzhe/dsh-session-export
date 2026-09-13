@@ -41,7 +41,7 @@ export interface ArchiveConfig {
 }
 
 const TOOL = 'dsh-session-export'
-const TOOL_VERSION = '1.0.0'
+const TOOL_VERSION = '1.0.1'
 
 interface ArchiveManifest {
   readonly schemaVersion: 1

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — 2026-09-13
+
+- README language switcher now uses absolute GitHub URLs — the 中文 link
+  works on the npm package page (npm hosts README.md only).
+- Version strings report 1.0.1.
+
 ## 1.0.0 — 2026-09-13
 
 Session replay report release: the plugin graduates from "export" to "report tooling".
