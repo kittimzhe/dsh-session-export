@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0 — 2026-09-13
+
+Report navigation and ergonomics release.
+
+### Added
+
+- **Per-turn folding** — the transcript groups into collapsible turn
+  sections (turn number · duration · entry count); turns containing
+  failures are flagged ⚠ in the summary.
+- **Sticky toolbar** — for reports with 4+ turns or 12+ entries: TOC chips
+  (top / timeline / tools / T1…Tn / ⚠ errors) plus a live search box.
+- **Transcript search** — client-side, case-insensitive; filters entries,
+  auto-expands matching turns, shows a match count; `/` focuses, `Esc`
+  clears. Zero network, zero dependencies.
+- **Copy buttons** — one-click copy for tool arguments, results, diffs,
+  and reasoning blocks (Clipboard API with `execCommand` fallback;
+  hover-revealed, hidden in print).
+- Section anchors (`#timeline`, `#tools`, `#turn-N`) for deep-linking.
+
 ## 1.0.1 — 2026-09-13
 
 - README language switcher now uses absolute GitHub URLs — the 中文 link

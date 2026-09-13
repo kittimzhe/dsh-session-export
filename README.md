@@ -59,6 +59,8 @@ Like every `ctx.commands` command, all three run on the human-command plane: res
 - **Bilingual labels**: `lang: zh` renders the entire report in Chinese; default is English
 - **Native tooltips**: hover KPI cards, timeline bars, and sparkline bars for details
 - **Native folding**: tool arguments/results and reasoning in `<details>`
+- **Per-turn folding**: the transcript groups into collapsible turns (duration · entry count · ⚠ flag); the sticky toolbar gives TOC chips + live search (`/` to focus) for long reports
+- **Copy buttons**: one click to copy any tool argument/result/diff/reasoning block
 - **Dark/light theme**: follows `prefers-color-scheme`, toggle button, remembered
 - **Print → PDF**: `@media print` rules; printing auto-expands all folds — archival copies in one Cmd+P
 

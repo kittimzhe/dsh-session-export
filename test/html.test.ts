@@ -201,6 +201,91 @@ describe('renderHtml v1.0.0 Tier A', () => {
   })
 })
 
+
+describe('renderHtml v1.1.0 Tier B', () => {
+  function bigInput(): RenderInput {
+    const entries: TranscriptEntry[] = []
+    let seq = 0
+    for (let turn = 0; turn < 5; turn += 1) {
+      entries.push(entry(++seq, base + turn * 120_000, { id: `u${seq}` as never, role: 'user', source: { kind: 'user' } as never, content: [{ type: 'text', text: `request number ${turn}` }] }))
+      entries.push(entry(++seq, base + turn * 120_000 + 5_000, {
+        id: `a${seq}` as never, role: 'assistant',
+        source: { kind: 'model', provider: 'deepseek', model: 'v3' } as never,
+        content: [{ type: 'tool-call', id: `c${seq}` as never, name: 'bash', arguments: `{"cmd":"echo ${turn}"}` }],
+      }, { inputTokens: 100, outputTokens: 50 } as never))
+      const callId = `c${seq}`
+      entries.push(entry(++seq, base + turn * 120_000 + 9_000, {
+        id: `r${seq}` as never, role: 'user', source: { kind: 'tool', callId: callId as never } as never,
+        content: [{ type: 'tool-result', toolCallId: callId as never, isError: turn === 2, content: [{ type: 'text', text: `result ${turn}` }] }],
+      }, undefined, turn === 2 ? { name: 'EFAIL', code: 'boom' } : undefined))
+    }
+    const totals = { messages: entries.length, toolCalls: 5, inputTokens: 500, outputTokens: 250 }
+    return {
+      header: { id: 'session-big0001', createdAt: base, cwd: '/tmp/big' } as never,
+      entries,
+      totals,
+      stats: computeStats(entries),
+      generator: 'dsh-session-export v1.1.0',
+      generatedAt: base + 700_000,
+    }
+  }
+
+  it('folds the transcript into per-turn details with anchors', () => {
+    const out = renderHtml(bigInput())
+    expect(out).toContain('<details class="turn" id="turn-1" open>')
+    expect(out).toContain('<details class="turn" id="turn-5" open>')
+    expect(out).toMatch(/<summary>Turn 1 <span class="turn-meta">/)
+  })
+
+  it('flags turns that contain errors', () => {
+    const out = renderHtml(bigInput())
+    expect(out).toMatch(/<summary>Turn 3 <span class="turn-meta">[^<]*<\/span> <span class="fail">⚠<\/span>/)
+    expect(out).not.toMatch(/<summary>Turn 1 <span class="turn-meta">[^<]*<\/span> <span class="fail">/)
+  })
+
+  it('keeps the error anchor stable inside turns', () => {
+    const out = renderHtml(bigInput())
+    expect(out).toContain('id="error-1"')
+    expect(out).toContain('class="jump-error" href="#error-1"')
+  })
+
+  it('renders the sticky toolbar for large sessions only', () => {
+    const big = renderHtml(bigInput())
+    expect(big).toContain('<nav class="toc" id="toc">')
+    expect(big).toContain('href="#timeline"')
+    expect(big).toContain('href="#tools"')
+    expect(big).toContain('href="#turn-1"')
+    expect(big).toContain('href="#error-1"')
+    const small = renderHtml(buildInput())
+    expect(small).not.toContain('<nav class="toc"')
+  })
+
+  it('renders a search box with localized placeholder', () => {
+    expect(renderHtml(bigInput())).toContain('placeholder="Search transcript')
+    const zh = renderHtml(bigInput(), { lang: 'zh' })
+    expect(zh).toContain('搜索转录')
+    expect(zh).toContain('placeholder="搜索转录')
+  })
+
+  it('adds copy buttons to tool blocks and code results', () => {
+    const out = renderHtml(buildInput())
+    expect(out).toMatch(/<button class="copy" type="button">copy<\/button>/)
+    const zh = renderHtml(buildInput(), { lang: 'zh' })
+    expect(zh).toMatch(/<button class="copy" type="button">复制<\/button>/)
+  })
+
+  it('wires the copied label into the script', () => {
+    expect(renderHtml(buildInput())).toContain('var COPIED="✓ copied"')
+    expect(renderHtml(buildInput(), { lang: 'zh' })).toContain('var COPIED="✓ 已复制"')
+  })
+
+  it('localizes turn summaries in zh', () => {
+    const out = renderHtml(buildInput(), { lang: 'zh' })
+    expect(out).toMatch(/<summary>第 1 轮 <span class="turn-meta">/)
+    expect(out).toContain('3 条')
+  })
+})
+
   it('omits the sparkline for a single assistant message', () => {
     const full = buildInput()
     const single: RenderInput = { ...full, entries: full.entries.slice(0, 2), stats: computeStats(full.entries.slice(0, 2)) }

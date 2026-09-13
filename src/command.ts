@@ -227,7 +227,7 @@ export interface TranscriptConfig {
   readonly pricing?: PricingConfig
 }
 
-const GENERATOR = 'dsh-session-export v1.0.1'
+const GENERATOR = 'dsh-session-export v1.1.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(

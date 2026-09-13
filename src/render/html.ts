@@ -64,6 +64,8 @@ type LabelKey =
   | 'jumpError' | 'footer' | 'theme'
   | 'tipMessages' | 'tipToolCalls' | 'tipTokens' | 'tipDuration' | 'tipTurns' | 'tipCost'
   | 'tipTurn' | 'tipSpark' | 'tipTool'
+  | 'entriesCount' | 'matches' | 'copyLabel' | 'copiedLabel' | 'searchPlaceholder'
+  | 'tocTop' | 'tocTimeline' | 'tocTools' | 'tocErrors'
 
 const LABELS: Record<LabelKey, { readonly en: string; readonly zh: string }> = {
   title: { en: 'DSH session {id} — transcript', zh: 'DSH 会话 {id} — 转录报告' },
@@ -101,6 +103,15 @@ const LABELS: Record<LabelKey, { readonly en: string; readonly zh: string }> = {
   tipTurn: { en: 'Turn {n} · {d}', zh: '第 {n} 轮 · {d}' },
   tipSpark: { en: '#{n} · {v} tokens', zh: '第 {n} 条 · {v} token' },
   tipTool: { en: '{n} calls', zh: '{n} 次调用' },
+  entriesCount: { en: '{n} entries', zh: '{n} 条' },
+  matches: { en: '{n} matches', zh: '{n} 条命中' },
+  copyLabel: { en: 'copy', zh: '复制' },
+  copiedLabel: { en: '✓ copied', zh: '✓ 已复制' },
+  searchPlaceholder: { en: 'Search transcript…  (press /)', zh: '搜索转录…（按 / 聚焦）' },
+  tocTop: { en: 'Top', zh: '顶部' },
+  tocTimeline: { en: 'Timeline', zh: '时间轴' },
+  tocTools: { en: 'Tools', zh: '工具' },
+  tocErrors: { en: '{n} failed', zh: '{n} 次失败' },
 }
 
 function t(key: LabelKey, lang: ReportLang): string {
@@ -228,22 +239,62 @@ function renderSparklineSvg(series: readonly number[], lang: ReportLang): string
   return `<svg class="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(t('sparkline', lang))}">${bars}</svg>`
 }
 
+/** A turn span: contiguous entries from one user message to the next (or EOF). */
+interface TurnSpan {
+  readonly from: number
+  readonly to: number // inclusive
+  readonly startTime: number
+  readonly endTime: number
+}
+
+/** Shared turn boundaries for the timeline, the TOC, and the folded transcript. */
+function computeTurnSpans(entries: RenderInput['entries']): TurnSpan[] {
+  const spans: TurnSpan[] = []
+  let start = 0
+  for (let i = 1; i < entries.length; i += 1) {
+    const message = entries[i]?.message
+    if (message !== undefined && message.role === 'user' && message.source.kind !== 'tool') {
+      spans.push({
+        from: start,
+        to: i - 1,
+        startTime: entries[start]?.time ?? 0,
+        endTime: entries[i - 1]?.time ?? 0,
+      })
+      start = i
+    }
+  }
+  if (start < entries.length) {
+    spans.push({
+      from: start,
+      to: entries.length - 1,
+      startTime: entries[start]?.time ?? 0,
+      endTime: entries[entries.length - 1]?.time ?? 0,
+    })
+  }
+  return spans
+}
+
+function isEntryError(entry: RenderInput['entries'][number]): boolean {
+  return (
+    entry.error !== undefined ||
+    (asToolResult(entry.message)?.content.some((block) => block.isError === true) ?? false)
+  )
+}
+
 /** Turn timeline: one horizontal bar per user→next-user span, colored by duration share. */
 function renderTimeline(input: RenderInput, lang: ReportLang): string {
-  const entries = input.entries
-  const starts = entries.filter((entry) => entry.message.role === 'user' && entry.message.source.kind !== 'tool')
   const durationMs = input.stats?.durationMs
-  if (starts.length < 2 || durationMs === undefined || durationMs === null) return ''
+  const spans = computeTurnSpans(input.entries)
+  if (spans.length < 2 || durationMs === undefined || durationMs === null) return ''
   const totalMs = durationMs
-  const rows = starts.map((start, index) => {
-    const end = starts[index + 1]?.time ?? entries[entries.length - 1]?.time ?? start.time
-    const ms = Math.max(0, end - start.time)
+  const rows = spans.map((span, index) => {
+    const ms = Math.max(0, span.endTime - span.startTime)
     const pct = totalMs === 0 ? 0 : (ms / totalMs) * 100
     const hue = 200 - Math.min(160, (pct / 100) * 160)
     const tip = escapeHtml(tf('tipTurn', lang, { n: index + 1, d: formatDuration(ms) }))
     return `<div class="tl-row"><span class="tl-label">${escapeHtml(tf('turn', lang, { n: index + 1 }))}</span><div class="tl-track"><div class="tl-bar" style="width:${pct.toFixed(1)}%;background:hsl(${hue.toFixed(0)},65%,50%)" title="${tip}"></div></div><span class="tl-dur">${escapeHtml(formatDuration(ms))}</span></div>`
   })
-  return `<section class="card"><h2>${escapeHtml(t('turnTimeline', lang))}</h2>${rows.join('')}</section>`
+  return `<section class="card" id="timeline"><h2>${escapeHtml(t('turnTimeline', lang))}</h2>${rows.join('')}</section>`
 }
 
 /** Tool ranking bars. */
@@ -257,7 +308,7 @@ function renderToolRanking(input: RenderInput, lang: ReportLang): string {
     const tip = escapeHtml(`${tool.name} · ${tf('tipTool', lang, { n: tool.calls })}`)
     return `<div class="tool-row"><span class="tool-name" title="${escapeHtml(tool.name)}">${escapeHtml(tool.name)}</span><div class="tool-track"><div class="tool-bar" style="width:${pct.toFixed(1)}%" title="${tip}"></div></div><span class="tool-count">${tool.calls}${fail}</span></div>`
   })
-  return `<section class="card"><h2>${escapeHtml(t('toolCallsSection', lang))}</h2>${rows.join('')}</section>`
+  return `<section class="card" id="tools"><h2>${escapeHtml(t('toolCallsSection', lang))}</h2>${rows.join('')}</section>`
 }
 
 function renderBlocks(blocks: readonly ContentBlock[], options: HtmlRenderOptions): string[] {
@@ -266,7 +317,7 @@ function renderBlocks(blocks: readonly ContentBlock[], options: HtmlRenderOption
   for (const block of blocks) {
     if (block.type === 'reasoning') {
       parts.push(
-        `<details class="reasoning"><summary>${escapeHtml(t('reasoning', lang))}</summary><pre>${escapeHtml(block.text.trim())}</pre></details>`,
+        `<details class="reasoning"><summary>${escapeHtml(t('reasoning', lang))}</summary><div class="code-wrap"><pre>${escapeHtml(block.text.trim())}</pre><button class="copy" type="button">${escapeHtml(t('copyLabel', lang))}</button></div></details>`,
       )
     } else if (block.type === 'text') {
       parts.push(`<div class="msg-text">${escapeHtml(block.text.trim())}</div>`)
@@ -275,11 +326,11 @@ function renderBlocks(blocks: readonly ContentBlock[], options: HtmlRenderOption
       const diff = renderToolDiff(block.name, parsed)
       if (diff) {
         parts.push(
-          `<details class="tool"><summary>🔧 ${escapeHtml(block.name)}</summary><pre class="diff">${escapeHtml(truncate(diff, options.resultCharLimit))}</pre></details>`,
+          `<details class="tool"><summary>🔧 ${escapeHtml(block.name)}</summary><div class="code-wrap"><pre class="diff">${escapeHtml(truncate(diff, options.resultCharLimit))}</pre><button class="copy" type="button">${escapeHtml(t('copyLabel', lang))}</button></div></details>`,
         )
       } else {
         parts.push(
-          `<details class="tool"><summary>🔧 ${escapeHtml(block.name)}</summary><pre>${renderCode(block.arguments, options.argCharLimit)}</pre></details>`,
+          `<details class="tool"><summary>🔧 ${escapeHtml(block.name)}</summary><div class="code-wrap"><pre>${renderCode(block.arguments, options.argCharLimit)}</pre><button class="copy" type="button">${escapeHtml(t('copyLabel', lang))}</button></div></details>`,
         )
       }
     } else if ('content' in block) {
@@ -287,7 +338,7 @@ function renderBlocks(blocks: readonly ContentBlock[], options: HtmlRenderOption
         .map((inner2) => (inner2.type === 'text' ? inner2.text : `(${JSON.stringify(inner2.type)})`))
         .join('\n')
       parts.push(
-        `<details class="tool-result"${block.isError === true ? ' open' : ''}><summary>🧾 ${escapeHtml(t('result', lang))}</summary><pre>${renderCode(inner, options.resultCharLimit)}</pre></details>`,
+        `<details class="tool-result"${block.isError === true ? ' open' : ''}><summary>🧾 ${escapeHtml(t('result', lang))}</summary><div class="code-wrap"><pre>${renderCode(inner, options.resultCharLimit)}</pre><button class="copy" type="button">${escapeHtml(t('copyLabel', lang))}</button></div></details>`,
       )
     } else {
       parts.push(`<div class="unsupported">(${escapeHtml(JSON.stringify(block.type))})</div>`)
@@ -330,6 +381,51 @@ function renderEntry(entry: RenderInput['entries'][number], options: HtmlRenderO
 function renderFilterNote(input: RenderInput): string {
   if (input.filterNote === undefined) return ''
   return `<div class="filter-note">⚠ ${escapeHtml(input.filterNote)}</div>`
+}
+
+/** Fold the transcript into per-turn <details> sections (default open). */
+function renderTurns(input: RenderInput, options: HtmlRenderOptions): string {
+  const lang = options.lang ?? 'en'
+  const spans = computeTurnSpans(input.entries)
+  return spans
+    .map((span, index) => {
+      const slice = input.entries.slice(span.from, span.to + 1)
+      const hasError = slice.some(isEntryError)
+      const ms = Math.max(0, span.endTime - span.startTime)
+      const body = slice
+        .map((entry, offset) => renderEntry(entry, options, isEntryError(entry) ? errorNo(input, span.from + offset) : undefined))
+        .join('\n')
+      const flag = hasError ? ' <span class="fail">⚠</span>' : ''
+      return `<details class="turn" id="turn-${index + 1}" open><summary>${escapeHtml(tf('turn', lang, { n: index + 1 }))} <span class="turn-meta">${escapeHtml(formatDuration(ms))} · ${escapeHtml(tf('entriesCount', lang, { n: slice.length }))}</span>${flag}</summary>${body}</details>`
+    })
+    .join('\n')
+}
+
+/** Stable error ordinal for an entry: 1-based position among error entries. */
+function errorNo(input: RenderInput, entryIndex: number): number | undefined {
+  let n = 0
+  for (let i = 0; i <= entryIndex; i += 1) {
+    if (isEntryError(input.entries[i] as never)) n += 1
+  }
+  return n === 0 || !isEntryError(input.entries[entryIndex] as never) ? undefined : n
+}
+
+/** Sticky toolbar: TOC chips (top/timeline/tools/turns/errors) + live search box. */
+function renderToolbar(input: RenderInput, options: HtmlRenderOptions, errorCount: number): string {
+  const lang = options.lang ?? 'en'
+  const spans = computeTurnSpans(input.entries)
+  const enough = input.entries.length >= 12 || spans.length >= 4
+  if (!enough) return ''
+  const chips = [
+    `<a href="#top" title="${escapeHtml(t('tocTop', lang))}">◉</a>`,
+    `<a href="#timeline" title="${escapeHtml(t('tocTimeline', lang))}">⏱</a>`,
+    `<a href="#tools" title="${escapeHtml(t('tocTools', lang))}">🔧</a>`,
+    ...spans.map((_, index) => `<a href="#turn-${index + 1}">T${index + 1}</a>`),
+  ]
+  if (errorCount > 0) {
+    chips.push(`<a class="err" href="#error-1" title="${escapeHtml(tf('tocErrors', lang, { n: errorCount }))}">⚠</a>`)
+  }
+  return `<nav class="toc" id="toc">${chips.join('')}<span class="toc-search"><input class="search-box" type="search" placeholder="${escapeHtml(t('searchPlaceholder', lang))}" aria-label="${escapeHtml(t('searchPlaceholder', lang))}"><span class="search-count"></span></span></nav>`
 }
 
 const CSS = `
@@ -381,11 +477,31 @@ summary{cursor:pointer;font-size:13px;color:var(--muted)}
 details[open] summary{color:var(--ink)}
 .error-banner{background:rgba(220,38,38,.1);border:1px solid var(--fail);color:var(--fail);border-radius:8px;padding:8px 12px;margin:6px 0;font-size:13px}
 .filter-note{background:rgba(217,119,6,.12);border:1px solid #d97706;color:#b45309;border-radius:8px;padding:8px 12px;margin:12px 0;font-size:13px}
+.turn{border:1px solid var(--line);border-radius:10px;background:var(--card);margin:12px 0;padding:0 12px}
+.turn>summary{cursor:pointer;padding:10px 2px;font-size:13px;font-weight:600;color:var(--ink);user-select:none;list-style:none;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.turn>summary::-webkit-details-marker{display:none}
+.turn>summary::before{content:'▸';color:var(--muted);transition:transform .12s}
+.turn[open]>summary::before{transform:rotate(90deg)}
+.turn-meta{font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.toc{position:sticky;top:0;z-index:8;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 2px;margin:0 0 14px;scrollbar-width:thin}
+.toc a{flex:none;font-size:12px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;background:var(--card)}
+.toc a:hover{color:var(--accent);border-color:var(--accent)}
+.toc a.err{color:var(--fail);border-color:var(--fail)}
+.toc-search{margin-left:auto;flex:none;display:flex;align-items:center;gap:6px}
+.search-box{font:inherit;font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);width:180px}
+.search-box:focus{outline:1.5px solid var(--accent);outline-offset:0}
+.search-count{font-size:11px;color:var(--muted);min-width:52px;font-variant-numeric:tabular-nums}
+.code-wrap{position:relative}
+.code-wrap pre{margin:0}
+.copy{position:absolute;top:6px;right:6px;font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--muted);cursor:pointer;opacity:0;transition:opacity .12s}
+.code-wrap:hover .copy,details[open] .copy:focus{opacity:1}
+.copy:hover{color:var(--accent);border-color:var(--accent)}
+.hidden{display:none}
 footer{margin-top:28px;color:var(--muted);font-size:12px}
 .theme-toggle{position:fixed;top:14px;right:16px;z-index:9;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px}
 [data-theme=light]{color-scheme:light}
 [data-theme=dark]{color-scheme:dark}
-@media print{.theme-toggle,.jump-error{display:none}body{background:#fff;color:#000;max-width:100%}.entry,.card,.kpi{break-inside:avoid;border-color:#bbb}pre{background:#f3f4f6}}
+@media print{.theme-toggle,.jump-error,.toc,.copy{display:none}body{background:#fff;color:#000;max-width:100%}.entry,.card,.kpi{break-inside:avoid;border-color:#bbb}pre{background:#f3f4f6}}
 `
 
 /** Render the complete single-file HTML report. */
@@ -393,15 +509,9 @@ export function renderHtml(input: RenderInput, options?: Partial<HtmlRenderOptio
   const opts = { ...defaultHtmlOptions, ...options }
   const lang = opts.lang ?? 'en'
   const h = input.header
-  let errorCount = 0
-  const entries = input.entries
-    .map((entry) => {
-      const isError =
-        entry.error !== undefined ||
-        (asToolResult(entry.message)?.content.some((block) => block.isError === true) ?? false)
-      return renderEntry(entry, opts, isError ? ++errorCount : undefined)
-    })
-    .join('\n')
+  const errorCount = input.entries.filter(isEntryError).length
+  const turns = renderTurns(input, opts)
+  const toolbar = renderToolbar(input, opts, errorCount)
   const jump =
     errorCount > 0
       ? `<a class="jump-error" href="#error-1">${escapeHtml(tf('jumpError', lang, { n: errorCount }))}</a>`
@@ -415,17 +525,18 @@ export function renderHtml(input: RenderInput, options?: Partial<HtmlRenderOptio
 <title>${escapeHtml(title)}</title>
 <style>${CSS}</style>
 </head>
-<body>
+<body id="top">
 <button class="theme-toggle" type="button" aria-label="${escapeHtml(t('theme', lang))}">${escapeHtml(t('theme', lang))}</button>
 <h1>${escapeHtml(title)}</h1>
 <div class="meta">${escapeHtml(h.cwd ?? '')} · ${escapeHtml(h.createdAt ? fmtTime(h.createdAt) : '?')}${h.agentPreset !== undefined ? ` · ${escapeHtml(h.agentPreset)}` : ''}</div>
 ${renderFilterNote(input)}
 ${renderKpiGrid(input, lang)}
 ${jump}
+${toolbar}
 ${renderTimeline(input, lang)}
 ${renderToolRanking(input, lang)}
 <section class="card"><h2>${escapeHtml(t('transcript', lang))}</h2>
-${entries}
+${turns}
 </section>
 <footer>${escapeHtml(tf('footer', lang, { g: input.generator, t: fmtTime(input.generatedAt) }))}</footer>
 <script>
@@ -442,6 +553,46 @@ ${entries}
   window.addEventListener('beforeprint',function(){
     var d=document.querySelectorAll('details');for(var i=0;i<d.length;i++){d[i].open=true}
   });
+  var COPIED=${JSON.stringify(t('copiedLabel', lang))},COPY=${JSON.stringify(t('copyLabel', lang))};
+  function legacyCopy(text){
+    var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    var ok=false;try{ok=document.execCommand('copy')}catch(e){}
+    document.body.removeChild(ta);return ok;
+  }
+  document.addEventListener('click',function(e){
+    var btn=e.target;while(btn&&btn!==document&&!(btn.classList&&btn.classList.contains('copy'))){btn=btn.parentNode}
+    if(!btn||!btn.classList||!btn.classList.contains('copy'))return;
+    var wrap=btn.parentElement;var pre=wrap?wrap.querySelector('pre'):null;
+    if(!pre)return;
+    var text=pre.textContent||'';
+    function done(ok){btn.textContent=ok?COPIED:'✗';setTimeout(function(){btn.textContent=COPY},1200)}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){done(true)},function(){done(legacyCopy(text))});
+    }else{done(legacyCopy(text))}
+  });
+  var box=document.querySelector('.search-box'),count=document.querySelector('.search-count');
+  if(box&&count){
+    box.addEventListener('input',function(){
+      var q=box.value.trim().toLowerCase(),n=0;
+      var turns=document.querySelectorAll('.turn');
+      for(var i=0;i<turns.length;i++){
+        var turn=turns[i],vis=false,es=turn.querySelectorAll('.entry');
+        for(var j=0;j<es.length;j++){
+          var hit=!q||(es[j].textContent||'').toLowerCase().indexOf(q)>-1;
+          es[j].classList.toggle('hidden',!hit);
+          if(hit){vis=true;n++}
+        }
+        turn.classList.toggle('hidden',!vis);
+        if(q&&vis){turn.open=true}
+      }
+      count.textContent=q?String(n):'';
+    });
+    box.addEventListener('keydown',function(e){if(e.key==='Escape'){box.value='';box.dispatchEvent(new Event('input'))}});
+    document.addEventListener('keydown',function(e){
+      if(e.key==='/'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName||'')){e.preventDefault();box.focus()}
+    });
+  }
 })();
 </script>
 </body>

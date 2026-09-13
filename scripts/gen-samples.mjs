@@ -45,6 +45,10 @@ const entries = [
   ], 150),
   toolResult(10, base + 96_000, 'call-4', 'ok  \tgithub.com/alibaba/opensandbox/execd\t0.496s\n--- PASS: TestBuildCredential_NilIdentityReturnsNil (0.00s)\n--- PASS: TestBuildCredential_SameIdentityReturnsNil (0.00s)'),
   user(11, base + 120_000, '好，写 PR 描述发出去。另外把结果发我邮箱 mengzhe@example.com'),
+  assistant(12, base + 132_000, [
+    { type: 'text', text: 'PR 已拟好：标题「fix(execd): skip credential path for same-identity requests」，正文含根因、修复、测试与 gocognit 对比。邮箱通过 SMTP 发出。' },
+  ], 260),
+  user(13, base + 180_000, '收到。把这个会话导出成报告存档'),
 ]
 
 const totals = {
@@ -63,7 +67,7 @@ const input = {
     ancestors: [],
     descendants: [{ id: 'session-3cd71d7e', createdAt: base + 40_000, origin: 'subagent', children: [] }],
   },
-  generator: 'dsh-session-export v1.0.0',
+  generator: 'dsh-session-export v1.1.0',
   generatedAt: base + 200_000,
 }
 
