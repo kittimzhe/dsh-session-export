@@ -3,7 +3,8 @@
  *
  * Grammar (command-owned, per dsh-commands: consumers own their grammar):
  *   /transcript [path] [--id <sessionId>] [--out <path…>]
- *               [--json] [--md] [--full]
+ *               [--json] [--md] [--html] [--full]
+ *               [--last <duration>] [--errors-only] [--mask]
  */
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-session-query'
@@ -14,27 +15,51 @@ import type { Message } from '@deepseek-ai/dsh-llm'
 import type { LogOnlyLine, LineageInfo, LineageNode, RenderInput, TranscriptEntry, TranscriptTotals } from './types.ts'
 import { renderMarkdown } from './render/markdown.ts'
 import { renderJson } from './render/json.ts'
+import { renderHtml } from './render/html.ts'
+import { computeStats } from './stats.ts'
+import { maskEntries } from './mask.ts'
+import type { PricingConfig } from './types.ts'
+import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 
-export const USAGE = 'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--full]'
+export const USAGE =
+  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask]'
 
 export interface TranscriptArgs {
   readonly sessionId?: string
   readonly outPath?: string
   readonly json: boolean
   readonly md: boolean
+  readonly html: boolean
   readonly full: boolean
+  /** Epoch-millisecond lower bound from `--last`. */
+  readonly since?: number
+  readonly errorsOnly: boolean
+  readonly mask: boolean
 }
 
 /** Parse raw command input; returns args or a usage-error string. */
 export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
   const trimmed = rawInput.trim()
-  if (trimmed.length === 0) return { json: false, md: true, full: false }
+  if (trimmed.length === 0) return { json: false, md: true, html: false, full: false, errorsOnly: false, mask: false }
   const tokens = trimmed.split(/\s+/)
-  const args: { sessionId?: string; outPath?: string; json: boolean; md: boolean; full: boolean } = {
+  const args: {
+    sessionId?: string
+    outPath?: string
+    json: boolean
+    md: boolean
+    html: boolean
+    full: boolean
+    since?: number
+    errorsOnly: boolean
+    mask: boolean
+  } = {
     json: false,
     md: false,
+    html: false,
     full: false,
+    errorsOnly: false,
+    mask: false,
   }
   let positional: string | undefined
   let i = 0
@@ -70,13 +95,37 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
       i += 1
       continue
     }
+    if (token === '--html') {
+      args.html = true
+      i += 1
+      continue
+    }
+    if (token === '--mask') {
+      args.mask = true
+      i += 1
+      continue
+    }
+    if (token === '--errors-only') {
+      args.errorsOnly = true
+      i += 1
+      continue
+    }
+    if (token === '--last') {
+      const value = tokens[i + 1]
+      if (value === undefined || value.startsWith('--')) return `--last requires a duration (e.g. 30m, 12h, 7d).\n${USAGE}`
+      const bound = parseDurationBound(value)
+      if (bound === null) return `--last expects a duration like 30m, 12h, or 7d.\n${USAGE}`
+      args.since = bound
+      i += 2
+      continue
+    }
     if (token.startsWith('--')) return `Unknown option: ${token}\n${USAGE}`
     if (positional !== undefined) return `Unexpected extra positional argument: ${token}\n${USAGE}`
     positional = token
     i += 1
   }
   if (args.outPath === undefined) args.outPath = positional
-  if (!args.json && !args.md) args.md = true
+  if (!args.json && !args.md && !args.html) args.md = true
   return args
 }
 
@@ -168,9 +217,15 @@ export interface TranscriptConfig {
   readonly argCharLimit?: number
   /** Character limit for rendered tool results. */
   readonly resultCharLimit?: number
+  /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
+  readonly mask?: boolean
+  /** Extra masking regex sources applied alongside the built-in rules. */
+  readonly maskPatterns?: readonly string[]
+  /** Token price table; cost rows appear only when both rates are set. */
+  readonly pricing?: PricingConfig
 }
 
-const GENERATOR = 'dsh-session-export v0.2.0'
+const GENERATOR = 'dsh-session-export v1.0.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(
@@ -210,14 +265,44 @@ export async function executeTranscript(
     lineage = undefined
   }
 
-  const entries = buildEntries(log.events)
+  let entries = buildEntries(log.events)
+
+  // --errors-only: keep failed tool results plus a two-entry context window.
+  if (args.errorsOnly) {
+    const keep = new Set<number>()
+    entries.forEach((entry, index) => {
+      if (entry.error !== undefined) {
+        for (let w = Math.max(0, index - 2); w <= Math.min(entries.length - 1, index + 2); w += 1) keep.add(w)
+      }
+    })
+    entries = entries.filter((_, index) => keep.has(index))
+  }
+  // --last: keep entries at or after the duration lower bound.
+  if (args.since !== undefined) {
+    entries = entries.filter((entry) => entry.time >= (args.since as number))
+  }
+
+  const filterNote =
+    args.errorsOnly && args.since !== undefined
+      ? 'Filtered view: failed tool results with context, further limited by --last'
+      : args.errorsOnly
+        ? 'Filtered view: failed tool results with a two-entry context window (--errors-only)'
+        : args.since !== undefined
+          ? 'Filtered view: entries within --last'
+          : undefined
+
   const totals = buildTotals(entries)
+  const stats = computeStats(entries, config?.pricing)
+  const mask = args.mask || config?.mask === true
+  const renderedEntries = mask ? maskEntries(entries, { extraPatterns: config?.maskPatterns }) : entries
   const input: RenderInput = {
     header: log.session,
-    entries,
+    entries: renderedEntries,
     ...(lineage !== undefined ? { lineage } : {}),
     ...(args.full ? { logOnly: buildLogOnly(log.events) } : {}),
     totals,
+    stats,
+    ...(filterNote !== undefined ? { filterNote } : {}),
     generator: GENERATOR,
     generatedAt: Date.now(),
   }
@@ -231,12 +316,21 @@ export async function executeTranscript(
     const path = defaultPath !== undefined ? `${defaultPath}.md` : requireExtension(args.outPath, '.md')
     outputs.push({ path, content: renderMarkdown(input, config) })
   }
+  if (args.html) {
+    const path =
+      defaultPath !== undefined
+        ? `${defaultPath}.html`
+        : args.outPath !== undefined && (args.md || args.json)
+          ? requireExtension(args.outPath.replace(/\.(md|json)$/i, ''), '.html')
+          : requireExtension(args.outPath, '.html')
+    outputs.push({ path, content: renderHtml(input, config) })
+  }
   if (args.json) {
     const path =
       defaultPath !== undefined
         ? `${defaultPath}.json`
-        : args.outPath !== undefined && args.md
-          ? requireExtension(args.outPath.replace(/\.md$/i, ''), '.json')
+        : args.outPath !== undefined && (args.md || args.html)
+          ? requireExtension(args.outPath.replace(/\.(md|html)$/i, ''), '.json')
           : requireExtension(args.outPath, '.json')
     outputs.push({ path, content: renderJson(input) })
   }

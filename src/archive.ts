@@ -17,6 +17,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import type { SessionLineageNode } from '@deepseek-ai/dsh-session-query'
 import { id8 } from './command.ts'
+import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteBytes } from './util/atomicWrite.ts'
 import { buildZip } from './util/zip.ts'
 
@@ -40,7 +41,7 @@ export interface ArchiveConfig {
 }
 
 const TOOL = 'dsh-session-export'
-const TOOL_VERSION = '0.2.0'
+const TOOL_VERSION = '1.0.0'
 
 interface ArchiveManifest {
   readonly schemaVersion: 1
@@ -73,11 +74,9 @@ function dateSlug(epochMs: number): string {
 
 /** `7d`/`12h`/`30m`/`90s` → epoch-millisecond lower bound, or a usage error. */
 function parseDuration(input: string): number | string {
-  const match = /^(\d+)\s*([smhd])$/.exec(input.trim())
-  if (match === null) return `--since expects a duration like 7d, 12h, 30m, or 90s.\n${ARCHIVE_USAGE}`
-  const n = Number(match[1])
-  const ms = match[2] === 's' ? n * 1000 : match[2] === 'm' ? n * 60_000 : match[2] === 'h' ? n * 3_600_000 : n * 86_400_000
-  return Date.now() - ms
+  const bound = parseDurationBound(input)
+  if (bound === null) return `--since expects a duration like 7d, 12h, 30m, or 90s.\n${ARCHIVE_USAGE}`
+  return bound
 }
 
 /** Parse raw command input; returns args or a usage-error string. */

@@ -23,6 +23,8 @@ export function renderJson(input: RenderInput): string {
     generatedAt: input.generatedAt,
     session: input.header,
     totals: input.totals,
+    ...(input.stats !== undefined ? { stats: input.stats } : {}),
+    ...(input.filterNote !== undefined ? { filterNote: input.filterNote } : {}),
     ...(input.lineage !== undefined ? { lineage: input.lineage } : {}),
     transcript: input.entries.map(serializeEntry),
     ...(input.logOnly !== undefined ? { logOnly: input.logOnly } : {}),

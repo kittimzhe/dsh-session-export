@@ -13,6 +13,8 @@ import type {
 } from '@deepseek-ai/dsh-llm'
 import type { RenderInput, LineageNode } from '../types.ts'
 import { asAssistant, asToolResult } from '../types.ts'
+import { formatDuration } from '../stats.ts'
+import { renderLineageMermaid, renderTimelineMermaid } from './mermaid.ts'
 import { parseToolArguments, renderToolDiff } from './diff.ts'
 import { truncate } from '../util/truncate.ts'
 
@@ -43,11 +45,19 @@ function renderHeaderBlock(input: RenderInput): string {
   ]
   if (h.agentPreset) rows.push(['Agent preset', h.agentPreset])
   rows.push(['Messages', String(input.totals.messages)])
-  rows.push(['Tool calls', String(input.totals.toolCalls)])
+  const failed = input.stats?.failedToolCalls
+  rows.push(['Tool calls', failed !== undefined && failed > 0 ? `${input.totals.toolCalls} (${failed} failed)` : String(input.totals.toolCalls)])
   rows.push([
     'Tokens (in/out)',
     `${input.totals.inputTokens.toLocaleString('en-US')} / ${input.totals.outputTokens.toLocaleString('en-US')}`,
   ])
+  if (input.stats?.durationMs !== undefined && input.stats.durationMs !== null) {
+    rows.push(['Duration', formatDuration(input.stats.durationMs)])
+  }
+  if (input.stats?.cost !== undefined) {
+    const c = input.stats.cost
+    rows.push(['Cost ≈', `${c.currency}${c.total.toFixed(4)} (in ${c.currency}${c.input.toFixed(4)} / out ${c.currency}${c.output.toFixed(4)})`])
+  }
   rows.push(['Exported', fmtTime(input.generatedAt)])
   rows.push(['Generator', input.generator])
   const table = rows.map(([k, v]) => `| ${k} | ${v} |`).join('\n')
@@ -65,6 +75,8 @@ function renderLineage(input: RenderInput): string | null {
   if (!lineage) return null
   if (lineage.ancestors.length === 0 && lineage.descendants.length === 0) return null
   const parts: string[] = ['## Lineage', '']
+  const graph = renderLineageMermaid(lineage, input.header.id)
+  if (graph !== null) parts.push('```mermaid', graph, '```', '')
   if (lineage.ancestors.length > 0) {
     parts.push('Ancestors (root → this session):')
     parts.push('')
@@ -174,6 +186,17 @@ function renderEntry(entry: RenderInput['entries'][number], options: MarkdownRen
   return [`> *(unsupported message role: ${JSON.stringify(entry.message.role)})*`, '']
 }
 
+function renderTimelineSection(input: RenderInput): string | null {
+  const gantt = renderTimelineMermaid(input.entries)
+  if (gantt === null) return null
+  return ['## Timeline', '', '```mermaid', gantt, '```', ''].join('\n')
+}
+
+function renderFilterNote(input: RenderInput): string | null {
+  if (input.filterNote === undefined) return null
+  return ['> ⚠ ' + input.filterNote, ''].join('\n')
+}
+
 function renderLogOnly(input: RenderInput): string | null {
   if (!input.logOnly || input.logOnly.length === 0) return null
   const parts: string[] = ['## Log-only Events', '', 'Events that never joined the model surface (command lifecycles, compaction markers, …).', '']
@@ -190,7 +213,9 @@ export function renderMarkdown(input: RenderInput, options?: Partial<MarkdownRen
   const opts = { ...defaultMarkdownOptions, ...options }
   const sections: Array<string | null> = [
     renderHeaderBlock(input),
+    renderFilterNote(input),
     renderLineage(input),
+    renderTimelineSection(input),
     ['## Transcript', ''].join('\n'),
     input.entries.map((entry) => renderEntry(entry, opts).join('\n')).join('\n'),
     renderLogOnly(input),

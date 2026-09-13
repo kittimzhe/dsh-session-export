@@ -2,100 +2,134 @@
 
 [English](README.md) | 中文
 
-[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供会话导出：`/transcript` 把会话的 Markdown/JSON 转录**写到 Host 文件系统**，`/archive` 把原始会话日志写成逐会话 ZIP——两个命令都落到本机路径，且支持任意持久化后端（JSONL 或 SQLite）。
+为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供会话复盘报告：`/transcript` 把会话写成**单文件 HTML 报告**或 Markdown/JSON 转录，`/stats` 在终端打印统计卡，`/archive` 把原始会话日志写成逐会话 ZIP——全部落到本机路径，且支持任意持久化后端（JSONL 或 SQLite）。
+
+**通过 `ctx.sessionQuery` 直读会话日志本身——无旁路采集、无驻留内存、无数据漂移。** 装插件之前的历史会话照样能导。
 
 ## 为什么需要它
 
 官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端。本插件补上它明确推迟的部分：
 
-| | 官方 `/export` | 本插件 `/transcript` |
-|---|---|---|
-| 输出 | 原始日志 ZIP（浏览器下载） | **写入 Host 路径的 Markdown / JSON** |
-| 持久化后端 | 仅 JSONL | **`ctx.sessionQuery` 之后的任意后端**（JSONL、SQLite…） |
-| 内容 | 机器工件 | **人类转录**：消息流、工具调用、编辑器 diff、子代理谱系、token 汇总 |
+| | 官方 `/export` | 旁路监听型插件 | 本插件 |
+|---|---|---|---|
+| 输出 | 原始日志 ZIP（浏览器下载） | 来自旁路事件流的 MD/HTML | **写入 Host 路径的美化 HTML / Markdown / JSON** |
+| 数据源 | raw artifacts | 旁路监听器（常驻内存，与会话日志漂移） | **会话日志本身（sessionQuery）** |
+| 持久化后端 | 仅 JSONL | 只统计监听器见过的 | **任意后端**（JSONL、SQLite…） |
+| 装插件前的会话 | n/a | ❌ 无快照补录即丢失 | ✅ **全量历史可导** |
+| 统计 | — | 面板计数器 | **`/stats` 卡片 + 成本估算 + 工具排行** |
+| 谱系 / diff / 时间轴 | — | — | ✅ Mermaid 谱系、编辑器 diff、轮次时间轴 |
+| 批量 | — | — | ✅ `/archive --all --since` |
 
 转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
-
-`/archive` 补的是官方的第二个缺口：浏览器 `/export` **依赖 raw-artifact 后端**——SQLite 持久化声明 `supportsRawArtifacts: false`，所以 SQLite 部署根本拿不到导出。`/archive` 通过 `sessionQuery.readSession`（与后端无关）读到完整、replay 校验过的日志，把每个会话写成一个 ZIP（`session.jsonl` + `manifest.json`），并支持 `--all` 批量与 `--since` 时间范围。
 
 ## 命令契约
 
 | 输入 | 结果 |
 |---|---|
 | `/transcript` | 导出当前会话 → `<会话 cwd>/dsh-transcripts/transcript-<id8>-<时间戳>.md` |
-| `/transcript <path>` | 写入指定路径（缺 `.md` 后缀时自动追加） |
-| `/transcript --out <path>` | 同上，但取该 flag 之后整行作为路径（允许空格） |
+| `/transcript --html` | **单文件 HTML 报告**：KPI 卡片、轮次时间轴、工具排行、错误高亮、暗/亮主题、打印转 PDF |
+| `/transcript --json` / `--md` / `--html` | 任意组合输出格式 |
+| `/transcript <path>` / `--out <path>` | 写入指定路径（`--out` 后允许空格） |
 | `/transcript --id <sessionId>` | 导出另一个会话 |
-| `/transcript --json` / `--md` | 选择输出格式（可同时）；默认 `--md` |
-| `/transcript --full` | 附上 log-only 事件附录（命令生命周期、compaction 标记） |
+| `/transcript --last 30m` | **部分导出**：最近 30 分钟的条目（`7d`/`12h`/`30m`/`90s`） |
+| `/transcript --errors-only` | **调试视图**：报错的工具结果 ± 两条上下文 |
+| `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱等 |
+| `/transcript --full` | 附上 log-only 事件附录 + Mermaid 轮次时间轴 |
+| `/stats` | **终端统计卡**：消息、轮次、时长、工具调用（含失败）、token、成本、工具排行、sparkline——不写文件 |
+| `/archive` | 归档当前会话（含子代理后代）→ 逐会话 ZIP |
+| `/archive --all --since 7d` | 批量归档最近 7 天的全部会话 |
 
-与所有 `ctx.commands` 命令一样，`/transcript` 运行在人类命令平面：结果不进模型历史，零 token 消耗。
+与所有 `ctx.commands` 命令一样，三个命令都运行在人类命令平面：结果不进模型历史，零 token 消耗。
 
-## 归档
+## HTML 报告长什么样
 
-| 输入 | 结果 |
-|---|---|
-| `/archive` | 归档当前会话（含子代理后代）→ `<cwd>/.dsh-archives/dsh-session-<id8>-<日期>.zip` |
-| `/archive --id <sessionId>` | 归档指定会话（默认含后代，加 `--no-descendants` 排除） |
-| `/archive --all` | 归档当前项目目录下的全部会话 |
-| `/archive --since 7d` | 限定 `--all` 只取最近 7 天创建的会话（`7d`/`12h`/`30m`/`90s`） |
-| `/archive --out <dir>` | 写入指定目录（取该 flag 之后整行；默认 `.dsh-archives/`） |
-| `/archive --no-descendants` | 排除子代理子会话 |
+![HTML 报告（亮色主题）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-light.png)
+![HTML 报告（暗色主题）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-dark.png)
 
-每个 ZIP 内含 `session.jsonl`（完整原始事件日志，replay 校验、1:1）与 `manifest.json`（id、时间戳、cwd、事件数、谱系）。`/archive` 同样跑在人类命令平面，零 token。单个会话读取失败会跳过并汇总，不打断整批。
+`/transcript --html` 写出一个自包含文件——不引外部 CSS/JS，离线可开：
 
-## 安装（树外插件）
+- **KPI 卡片**：消息数、工具调用（失败数标红）、token 进/出、时长、轮次、成本
+- **轮次时间轴**：每轮一条彩色横条，按墙钟占比着色
+- **工具排行**：横向条形图 + 每工具失败数
+- **Token sparkline**：内嵌 SVG，每条 assistant 消息的输出 token 分布
+- **错误焦点**：失败的工具结果红边框 + 横幅 + 自动展开
+- **原生折叠**：工具参数/结果与 reasoning 收进 `<details>`
+- **暗/亮主题**：跟随系统 `prefers-color-scheme`，可切换且记忆
+- **打印 → PDF**：`@media print` 规则；打印时自动展开全部折叠——Cmd+P 一步归档
 
-从 npm 安装：
+Markdown 输出新增 **Mermaid 谱系图**（GitHub/VSCode 原生渲染），`--full` 时附 Mermaid 轮次甘特图。
 
-```sh
-dsh plugin --profile web add dsh-session-export
-```
+## 成本估算
 
-或从 GitHub 安装：
-
-```sh
-dsh plugin --profile web add github:kittimzhe/dsh-session-export
-```
-
-然后在 profile 的 `cordis.patch.yml` 中加一行（该行依赖 `commands` 与 `sessionQuery` 服务，shipped profile 均已挂载）：
-
-```yaml
-- id: session-export
-  name: 'dsh-session-export'
-```
-
-## Markdown 内容
-
-- 头部元信息表：会话 id、项目、创建时间、agent preset、消息/工具调用计数、token 汇总、生成器
-- 谱系：祖先链 + 递归子代理后代树
-- 按日志序的转录：用户消息、助手消息（provider/model 溯源、token 用量、可折叠 reasoning）、工具调用（参数截断；`str_replace_editor` 渲染为 ```diff 块）、工具结果（带错误标记）
-- `--full`：log-only 事件附录
-
-## 配置
-
-插件行 config（均可选）：
+配置一次价格表，之后每次导出/统计都显示估算成本：
 
 ```yaml
 - id: session-export
   name: 'dsh-session-export'
   config:
-    defaultDir: /绝对/输出/目录      # 默认：会话 cwd + dsh-transcripts/
-    argCharLimit: 512               # 工具参数渲染上限
-    resultCharLimit: 2048           # 工具结果渲染上限
-    archiveDir: /绝对/输出/目录      # 默认：会话 cwd + .dsh-archives/
-    includeDescendants: true        # /archive --id 默认含后代
-    maxSessionsPerRun: 100          # /archive --all 安全上限
+    pricing:
+      inputPerMillion: 0.27   # 每百万输入 token 单价
+      outputPerMillion: 1.10  # 每百万输出 token 单价
+      currency: '$'           # 货币标签
 ```
+
+## 安装（out-of-tree 插件）
+
+从 npm：
+
+```sh
+dsh plugin --profile web add dsh-session-export
+```
+
+或从 GitHub：
+
+```sh
+dsh plugin --profile web add github:kittimzhe/dsh-session-export
+```
+
+然后在 profile 的 `cordis.patch.yml` 加一行（需要 `commands` 与 `sessionQuery` 服务，官方 profile 均已挂载）：
+
+```yaml
+- id: session-export
+  name: 'dsh-session-export'
+```
+
+## 配置
+
+插件行 config（全部可选）：
+
+```yaml
+- id: session-export
+  name: 'dsh-session-export'
+  config:
+    defaultDir: /absolute/output/dir   # 默认：会话 cwd + dsh-transcripts/
+    argCharLimit: 512                  # 工具参数渲染上限
+    resultCharLimit: 2048              # 工具结果渲染上限
+    mask: true                         # 默认脱敏（--mask 按次开启）
+    maskPatterns: ['OPS-\d+']          # 额外脱敏正则
+    pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }
+    archiveDir: /absolute/output/dir   # 默认：会话 cwd + .dsh-archives/
+    includeDescendants: true           # /archive --id 默认含后代
+    maxSessionsPerRun: 100             # /archive --all 安全上限
+```
+
+## Markdown 里有什么
+
+- 表头：会话 id、项目、创建时间、agent preset、消息/工具调用数（含失败）、token 汇总、时长、成本、生成器
+- 谱系：Mermaid 图 + 祖先链与子代理后代树
+- 按日志顺序的转录：用户消息、assistant 消息（provider/model 出处、token 用量、可折叠 reasoning）、工具调用（参数截断；`str_replace_editor` 渲染成 ```diff 块）、工具结果（错误感知）
+- `--full`：Mermaid 轮次时间轴 + log-only 事件附录
 
 ## 已知限制
 
-- 导出经由可信 `ctx.sessionQuery` 缝；未挂载该服务的组合无法使用本插件。
-- token 汇总只累加各 assistant 消息的 `usage` 记录；适配器未上报 usage 的步骤计零。
-- fenced 块内不做转义；diff 内容自身以 `+`/`-` 开头的行会渲染为更多 diff 行（对 diff 视图可接受）。
-- `/archive` 只导出、不恢复：DSH 没有写侧会话缝，因此 ZIP 是备份，不是往返。
+- 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
+- Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
+- 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
+- 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。
+- Markdown 代码块内部不做转义；diff 内容自带 `+`/`-` 行首时会渲染为附加 diff 行（diff 视图可接受）。
+- `/archive` 只出不进：DSH 没有写侧会话接缝，ZIP 是备份不是往返。
 
 ## 许可
 

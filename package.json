@@ -1,7 +1,7 @@
 {
   "name": "dsh-session-export",
-  "description": "Session export for DeepSeek Harness: /transcript writes Markdown/JSON transcripts, /archive writes raw SQLite-safe per-session ZIPs, both to a host path via ctx.sessionQuery",
-  "version": "0.2.0",
+  "description": "Session replay reports for DeepSeek Harness: /transcript writes styled single-file HTML / Markdown / JSON reports to a host path via ctx.sessionQuery (any backend, incl. SQLite), /stats prints a terminal stats card, /archive writes per-session ZIPs",
+  "version": "1.0.0",
   "publishConfig": {
     "access": "public"
   },
@@ -19,6 +19,7 @@
     "lib",
     "README.md",
     "README.zh.md",
+    "CHANGELOG.md",
     "LICENSE",
     "cordis.patch.yml"
   ],
@@ -35,7 +36,14 @@
     "session",
     "export",
     "transcript",
-    "markdown"
+    "html",
+    "report",
+    "stats",
+    "archive",
+    "backup",
+    "markdown",
+    "review",
+    "debug"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

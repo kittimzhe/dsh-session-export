@@ -61,6 +61,48 @@ export interface TranscriptTotals {
   readonly outputTokens: number
 }
 
+/** Per-tool call accounting. */
+export interface ToolStat {
+  readonly name: string
+  readonly calls: number
+  readonly failures: number
+}
+
+/** Price table applied to token totals (per one million tokens). */
+export interface PricingConfig {
+  readonly inputPerMillion?: number
+  readonly outputPerMillion?: number
+  /** Currency label rendered next to the estimate, e.g. `'$'` or `'¥'`. */
+  readonly currency?: string
+}
+
+/** Token-cost estimate derived from usage totals. */
+export interface CostEstimate {
+  readonly input: number
+  readonly output: number
+  readonly total: number
+  readonly currency: string
+}
+
+/** Session-wide statistics computed from transcript entries. */
+export interface SessionStats {
+  readonly messages: number
+  readonly turns: number
+  readonly toolCalls: number
+  readonly failedToolCalls: number
+  readonly inputTokens: number
+  readonly outputTokens: number
+  /** Wall-clock span from first to last entry; null with fewer than two entries. */
+  readonly durationMs: number | null
+  readonly startedAt: number | null
+  readonly endedAt: number | null
+  /** Tools sorted by descending call count. */
+  readonly toolBreakdown: readonly ToolStat[]
+  /** Output tokens per assistant message, in log order (sparkline series). */
+  readonly perAssistantTokens: readonly number[]
+  readonly cost?: CostEstimate
+}
+
 /** Everything a renderer needs, fully detached from cordis. */
 export interface RenderInput {
   readonly header: SessionHeader
@@ -68,6 +110,10 @@ export interface RenderInput {
   readonly lineage?: LineageInfo
   readonly logOnly?: readonly LogOnlyLine[]
   readonly totals: TranscriptTotals
+  /** Extended statistics; renderers may omit sections when absent. */
+  readonly stats?: SessionStats
+  /** Human-readable note when the entry set was filtered (`--last`, `--errors-only`). */
+  readonly filterNote?: string
   readonly generator: string
   readonly generatedAt: number
 }

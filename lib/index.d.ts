@@ -54,6 +54,44 @@ interface TranscriptTotals {
   readonly inputTokens: number;
   readonly outputTokens: number;
 }
+/** Per-tool call accounting. */
+interface ToolStat {
+  readonly name: string;
+  readonly calls: number;
+  readonly failures: number;
+}
+/** Price table applied to token totals (per one million tokens). */
+interface PricingConfig {
+  readonly inputPerMillion?: number;
+  readonly outputPerMillion?: number;
+  /** Currency label rendered next to the estimate, e.g. `'$'` or `'¥'`. */
+  readonly currency?: string;
+}
+/** Token-cost estimate derived from usage totals. */
+interface CostEstimate {
+  readonly input: number;
+  readonly output: number;
+  readonly total: number;
+  readonly currency: string;
+}
+/** Session-wide statistics computed from transcript entries. */
+interface SessionStats {
+  readonly messages: number;
+  readonly turns: number;
+  readonly toolCalls: number;
+  readonly failedToolCalls: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  /** Wall-clock span from first to last entry; null with fewer than two entries. */
+  readonly durationMs: number | null;
+  readonly startedAt: number | null;
+  readonly endedAt: number | null;
+  /** Tools sorted by descending call count. */
+  readonly toolBreakdown: readonly ToolStat[];
+  /** Output tokens per assistant message, in log order (sparkline series). */
+  readonly perAssistantTokens: readonly number[];
+  readonly cost?: CostEstimate;
+}
 /** Everything a renderer needs, fully detached from cordis. */
 interface RenderInput {
   readonly header: SessionHeader;
@@ -61,18 +99,27 @@ interface RenderInput {
   readonly lineage?: LineageInfo;
   readonly logOnly?: readonly LogOnlyLine[];
   readonly totals: TranscriptTotals;
+  /** Extended statistics; renderers may omit sections when absent. */
+  readonly stats?: SessionStats;
+  /** Human-readable note when the entry set was filtered (`--last`, `--errors-only`). */
+  readonly filterNote?: string;
   readonly generator: string;
   readonly generatedAt: number;
 }
 //#endregion
 //#region src/command.d.ts
-declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--full]";
+declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask]";
 interface TranscriptArgs {
   readonly sessionId?: string;
   readonly outPath?: string;
   readonly json: boolean;
   readonly md: boolean;
+  readonly html: boolean;
   readonly full: boolean;
+  /** Epoch-millisecond lower bound from `--last`. */
+  readonly since?: number;
+  readonly errorsOnly: boolean;
+  readonly mask: boolean;
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseTranscriptArgs(rawInput: string): TranscriptArgs | string;
@@ -89,6 +136,12 @@ interface TranscriptConfig {
   readonly argCharLimit?: number;
   /** Character limit for rendered tool results. */
   readonly resultCharLimit?: number;
+  /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
+  readonly mask?: boolean;
+  /** Extra masking regex sources applied alongside the built-in rules. */
+  readonly maskPatterns?: readonly string[];
+  /** Token price table; cost rows appear only when both rates are set. */
+  readonly pricing?: PricingConfig;
 }
 //#endregion
 //#region src/archive.d.ts
@@ -123,6 +176,88 @@ declare function renderMarkdown(input: RenderInput, options?: Partial<MarkdownRe
 //#region src/render/json.d.ts
 /** Render the complete JSON transcript document. */
 declare function renderJson(input: RenderInput): string;
+//#endregion
+//#region src/render/html.d.ts
+interface HtmlRenderOptions {
+  readonly argCharLimit: number;
+  readonly resultCharLimit: number;
+}
+declare const defaultHtmlOptions: HtmlRenderOptions;
+/** Render the complete single-file HTML report. */
+declare function renderHtml(input: RenderInput, options?: Partial<HtmlRenderOptions>): string;
+//#endregion
+//#region src/render/mermaid.d.ts
+/**
+ * Render the lineage (ancestors + descendants + self) as a `graph TD` block.
+ * @param lineage - Lineage info from `traceSession`.
+ * @param selfId - This session's id (rendered as the highlighted root).
+ * @returns The Mermaid block, or null when the lineage is empty.
+ */
+declare function renderLineageMermaid(lineage: LineageInfo, selfId: string): string | null;
+/**
+ * Render per-turn durations as a `gantt` block. A turn spans from one user
+ * message to the next (the last turn ends at the final entry).
+ * @param entries - Transcript entries in log order.
+ * @returns The Mermaid block, or null with fewer than two turns.
+ */
+declare function renderTimelineMermaid(entries: readonly TranscriptEntry[]): string | null;
+//#endregion
+//#region src/stats.d.ts
+/** Format a duration in milliseconds as a compact human label. */
+declare function formatDuration(ms: number): string;
+/**
+ * Compute session-wide statistics from transcript entries.
+ * @param entries - Transcript entries in log order.
+ * @param pricing - Optional price table; cost fields appear only when both
+ *   per-million rates are set.
+ * @returns Aggregated statistics.
+ */
+declare function computeStats(entries: readonly TranscriptEntry[], pricing?: PricingConfig): SessionStats;
+/**
+ * Render a numeric series as a compact sparkline string.
+ * @param series - Numbers (zero-safe; all-zero renders as a flat line).
+ * @returns One glyph per value.
+ */
+declare function sparkline(series: readonly number[]): string;
+interface StatsCardOptions {
+  /** Emit ANSI color escapes (default false — plain text everywhere). */
+  readonly color?: boolean;
+}
+/**
+ * Format statistics as a terminal card.
+ * @param stats - Computed session statistics.
+ * @param options - Card options.
+ * @returns Multi-line card text (no trailing newline).
+ */
+declare function formatStatsCard(stats: SessionStats, options?: StatsCardOptions): string;
+//#endregion
+//#region src/mask.d.ts
+interface MaskOptions {
+  /** Extra user-supplied patterns (source strings) applied after the builtins. */
+  readonly extraPatterns?: readonly string[];
+}
+/**
+ * Mask a read-only entry list into a new array with masked copies.
+ * @param entries - Original entries (never mutated).
+ * @param options - Mask options.
+ * @returns New entry array with masked message content; entry/ordering metadata unchanged.
+ */
+declare function maskEntries(entries: readonly TranscriptEntry[], options?: MaskOptions): TranscriptEntry[];
+/**
+ * Mask a bare string (exported for tests and direct use).
+ * @param text - Raw text.
+ * @param options - Mask options.
+ * @returns Masked text.
+ */
+declare function maskText(text: string, options?: MaskOptions): string;
+//#endregion
+//#region src/statsCommand.d.ts
+declare const STATS_USAGE = "Usage: /stats [--id <sessionId>]";
+interface StatsArgs {
+  readonly sessionId?: string;
+}
+/** Parse raw command input; returns args or a usage-error string. */
+declare function parseStatsArgs(rawInput: string): StatsArgs | string;
 //#endregion
 //#region src/render/diff.d.ts
 /**
@@ -161,4 +296,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig;
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type RenderInput, SessionExportConfig, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, defaultMarkdownOptions, id8, inject, name, parseArchiveArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderJson, renderMarkdown, renderToolDiff };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type PricingConfig, type RenderInput, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderMarkdown, renderTimelineMermaid, renderToolDiff, sparkline };

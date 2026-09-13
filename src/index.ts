@@ -16,6 +16,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { executeTranscript, type TranscriptConfig } from './command.ts'
 import { executeArchive, type ArchiveConfig } from './archive.ts'
+import { executeStats } from './statsCommand.ts'
 
 export const name = 'session-export'
 export const inject = ['commands', 'sessionQuery']
@@ -27,8 +28,26 @@ export { parseArchiveArgs, ARCHIVE_USAGE } from './archive.ts'
 export { renderMarkdown, defaultMarkdownOptions } from './render/markdown.ts'
 export type { MarkdownRenderOptions } from './render/markdown.ts'
 export { renderJson } from './render/json.ts'
+export { renderHtml, defaultHtmlOptions } from './render/html.ts'
+export type { HtmlRenderOptions } from './render/html.ts'
+export { renderLineageMermaid, renderTimelineMermaid } from './render/mermaid.ts'
+export { computeStats, formatStatsCard, sparkline, formatDuration } from './stats.ts'
+export { maskEntries, maskText } from './mask.ts'
+export type { StatsCardOptions } from './stats.ts'
+export { parseStatsArgs, STATS_USAGE } from './statsCommand.ts'
 export { renderEditorDiff, renderToolDiff, parseToolArguments } from './render/diff.ts'
-export type { LineageInfo, LineageNode, LogOnlyLine, RenderInput, TranscriptEntry, TranscriptTotals } from './types.ts'
+export type {
+  LineageInfo,
+  LineageNode,
+  LogOnlyLine,
+  RenderInput,
+  SessionStats,
+  ToolStat,
+  TranscriptEntry,
+  TranscriptTotals,
+  CostEstimate,
+  PricingConfig,
+} from './types.ts'
 export { buildZip } from './util/zip.ts'
 export type { ZipEntry } from './util/zip.ts'
 
@@ -48,6 +67,11 @@ export function apply(ctx: Context, config?: SessionExportConfig): void {
         name: 'archive',
         description: 'Archive raw session logs (any backend, incl. SQLite) as per-session ZIPs to a host path',
         handler: (invocation) => executeArchive(ctx, invocation, config),
+      })
+      yield ctx.commands.register({
+        name: 'stats',
+        description: 'Print a session stats card (messages, tools, tokens, duration, cost) — no files written',
+        handler: (invocation) => executeStats(ctx, invocation, config),
       })
     },
     'session-export lifecycle',

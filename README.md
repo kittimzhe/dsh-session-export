@@ -2,49 +2,78 @@
 
 English | [中文](README.zh.md)
 
-[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Session export for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `/transcript` writes a human-readable Markdown/JSON transcript, and `/archive` writes raw session logs as per-session ZIPs — both to a **host path**, on any persistence backend (JSONL or SQLite).
+Session replay reports for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `/transcript` writes a **styled single-file HTML report** or Markdown/JSON transcript, `/stats` prints a terminal stats card, and `/archive` writes raw session logs as per-session ZIPs — all to a **host path**, on any persistence backend (JSONL or SQLite).
+
+**Reads the session log itself through `ctx.sessionQuery` — no recorder, no resident memory, no drift.** Sessions that existed before the plugin was installed export just as well as live ones.
 
 ## Why
 
 The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP through the browser and supports the JSONL backend only. This plugin covers what it explicitly defers:
 
-| | official `/export` | this plugin `/transcript` |
-|---|---|---|
-| Output | raw log ZIP (browser download) | **Markdown / JSON written to a host path** |
-| Persistence backends | JSONL only | **any backend behind `ctx.sessionQuery`** (JSONL, SQLite, …) |
-| Content | machine artifacts | **human transcript**: messages, tool calls, editor diffs, subagent lineage, token totals |
+| | official `/export` | recorder-based plugins | this plugin |
+|---|---|---|---|
+| Output | raw log ZIP (browser download) | MD/HTML from a side-channel event stream | **styled HTML / Markdown / JSON to a host path** |
+| Data source | raw artifacts | bypass listener (memory-resident, drifts from the log) | **the session log itself via `sessionQuery`** |
+| Persistence backends | JSONL only | what the listener saw | **any backend** (JSONL, SQLite, …) |
+| Sessions before install | n/a | ❌ lost without snapshot backfill | ✅ **full history** |
+| Stats | — | in-panel counters | **`/stats` card + cost estimate + tool ranking** |
+| Lineage / diffs / timeline | — | — | ✅ Mermaid lineage, editor diffs, turn timeline |
+| Batch | — | — | ✅ `/archive --all --since` |
 
 Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin renders **append-origin surface events** — everything the user actually saw — instead of the model-visible surface, whose compaction replacements would erase conversation the user already read.
 
-`/archive` fills the second gap: the official browser `/export` **requires a raw-artifact backend** — SQLite persistence declares `supportsRawArtifacts: false`, so SQLite deployments get no export at all. `/archive` reads the complete, replay-validated log through `sessionQuery.readSession` (backend-agnostic) and writes one ZIP per session (`session.jsonl` + `manifest.json`) to a directory, with `--all` batch and `--since` time-range support.
-
-## Command contract
+## Commands
 
 | Input | Result |
 |---|---|
 | `/transcript` | Export the current session → `<session cwd>/dsh-transcripts/transcript-<id8>-<timestamp>.md` |
-| `/transcript <path>` | Write to the given path (`.md` appended when missing) |
-| `/transcript --out <path>` | Like positional, but the rest of the line is the path (spaces allowed) |
+| `/transcript --html` | **Single-file HTML report**: KPI cards, turn timeline, tool ranking, error highlighting, dark/light theme, print-to-PDF |
+| `/transcript --json` / `--md` / `--html` | Pick any combination of formats |
+| `/transcript <path>` / `--out <path>` | Write to the given path (spaces allowed after `--out`) |
 | `/transcript --id <sessionId>` | Export another session |
-| `/transcript --json` / `--md` | Pick the output format(s); default `--md` |
-| `/transcript --full` | Append the log-only events appendix (command lifecycles, compaction markers) |
+| `/transcript --last 30m` | **Partial export**: entries from the last 30 minutes (`7d`/`12h`/`30m`/`90s`) |
+| `/transcript --errors-only` | **Debug view**: failed tool results with a two-entry context window |
+| `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails) from the output |
+| `/transcript --full` | Append log-only events + Mermaid turn timeline |
+| `/stats` | **Terminal stats card**: messages, turns, duration, tool calls (with failures), tokens, cost, per-tool ranking, sparkline — no files written |
+| `/archive` | Archive the current session (incl. subagent descendants) → per-session ZIP |
+| `/archive --all --since 7d` | Batch-archive every session from the last 7 days |
 
-Like every `ctx.commands` command, `/transcript` runs on the human-command plane: the result never enters model history and costs zero tokens.
+Like every `ctx.commands` command, all three run on the human-command plane: results never enter model history and cost zero tokens.
 
-## Archive
+## The HTML report
 
-| Input | Result |
-|---|---|
-| `/archive` | Archive the current session (incl. subagent descendants) → `<cwd>/.dsh-archives/dsh-session-<id8>-<date>.zip` |
-| `/archive --id <sessionId>` | Archive that session (incl. descendants unless `--no-descendants`) |
-| `/archive --all` | Archive every session in the current project directory |
-| `/archive --since 7d` | Restrict `--all` to sessions created in the last 7 days (`7d`/`12h`/`30m`/`90s`) |
-| `/archive --out <dir>` | Write to the given directory (rest of the line; default `.dsh-archives/`) |
-| `/archive --no-descendants` | Exclude subagent children |
+![HTML report (light theme)](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-light.png)
+![HTML report (dark theme)](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-dark.png)
 
-Each ZIP holds `session.jsonl` (the complete raw event log, replay-validated, 1:1) and `manifest.json` (id, timestamps, cwd, event count, lineage). Like `/transcript`, `/archive` runs on the human-command plane — zero tokens. Per-session failure isolation keeps a batch running when one session fails to read.
+`/transcript --html` writes one self-contained file — no external CSS/JS, opens offline:
+
+- **KPI cards**: messages, tool calls (failed highlighted), tokens in/out, duration, turns, cost
+- **Turn timeline**: one colored bar per turn, proportional to wall-clock share
+- **Tool ranking**: horizontal bars with per-tool failure counts
+- **Token sparkline**: inline SVG, output tokens per assistant message
+- **Error focus**: failed tool results get a red border, banner, and auto-open
+- **Native folding**: tool arguments/results and reasoning in `<details>`
+- **Dark/light theme**: follows `prefers-color-scheme`, toggle button, remembered
+- **Print → PDF**: `@media print` rules; printing auto-expands all folds — archival copies in one Cmd+P
+
+Markdown output gains a **Mermaid lineage graph** (GitHub/VSCode render it natively) and a Mermaid turn-timeline gantt with `--full`.
+
+## Cost estimation
+
+Set a price table once and every export/stats run shows the estimated cost:
+
+```yaml
+- id: session-export
+  name: 'dsh-session-export'
+  config:
+    pricing:
+      inputPerMillion: 0.27   # your per-1M-input-token price
+      outputPerMillion: 1.10  # your per-1M-output-token price
+      currency: '$'           # label rendered next to the estimate
+```
 
 ## Install (out-of-tree plugin)
 
@@ -67,13 +96,6 @@ Then add to the profile's `cordis.patch.yml` (the row requires `commands` and `s
   name: 'dsh-session-export'
 ```
 
-## What the Markdown contains
-
-- Header table: session id, project, created, agent preset, message/tool-call counts, token totals, generator
-- Lineage: ancestor chain and recursive subagent descendant tree
-- Transcript in log order: user messages, assistant messages (provider/model provenance, token usage, collapsible reasoning), tool calls (arguments truncated; `str_replace_editor` rendered as ```diff blocks), tool results (error-aware)
-- `--full`: log-only events appendix
-
 ## Configuration
 
 Plugin row config (all optional):
@@ -85,15 +107,27 @@ Plugin row config (all optional):
     defaultDir: /absolute/output/dir   # default: session cwd + dsh-transcripts/
     argCharLimit: 512                  # rendered tool-argument cap
     resultCharLimit: 2048              # rendered tool-result cap
+    mask: true                         # redact secrets by default (--mask per run)
+    maskPatterns: ['OPS-\d+']          # extra masking regexes
+    pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }
     archiveDir: /absolute/output/dir   # default: session cwd + .dsh-archives/
     includeDescendants: true           # /archive --id default
     maxSessionsPerRun: 100             # safety cap on /archive --all
 ```
 
+## What the Markdown contains
+
+- Header table: session id, project, created, agent preset, message/tool-call counts (failures), token totals, duration, cost, generator
+- Lineage: Mermaid graph + ancestor chain and recursive subagent descendant tree
+- Transcript in log order: user messages, assistant messages (provider/model provenance, token usage, collapsible reasoning), tool calls (arguments truncated; `str_replace_editor` rendered as ```diff blocks), tool results (error-aware)
+- `--full`: Mermaid turn timeline + log-only events appendix
+
 ## Known limitations
 
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
+- Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
+- Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.
 - Markdown escapes nothing inside fenced blocks; a diff whose own lines start with `+`/`-` renders as additional diff lines (acceptable for a diff view).
 - `/archive` is export-only: there is no restore/import because DSH exposes no write-side session seam, so the ZIP is a backup, not a round-trip.
 
