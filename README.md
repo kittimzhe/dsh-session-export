@@ -4,23 +4,44 @@ English | [中文](https://github.com/kittimzhe/dsh-session-export/blob/main/REA
 
 [![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Session replay reports for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `/transcript` writes a **styled single-file HTML report** or Markdown/JSON transcript, `/stats` prints a terminal stats card, and `/archive` writes raw session logs as per-session ZIPs — all to a **host path**, on any persistence backend (JSONL or SQLite).
+Deterministic session evidence reports for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `/transcript` writes a **styled single-file HTML report** or Markdown/JSON transcript, `/stats` prints a terminal stats card, and `/archive` writes raw session logs as per-session ZIPs — all to a **host path**, on any persistence backend (JSONL or SQLite).
 
 **Reads the session log itself through `ctx.sessionQuery` — no recorder, no resident memory, no drift.** Sessions that existed before the plugin was installed export just as well as live ones.
 
+## Positioning
+
+`dsh-session-export` is a **session evidence layer**, not a memory optimizer.
+
+- It focuses on **auditability** (what happened, in which order, with what failures).
+- It focuses on **reproducibility** (stable outputs, portable files, deterministic render).
+- It focuses on **operations** (batch archive, host-path artifacts, print-ready reports).
+
+If your primary goal is context compression or long-term semantic memory, use a memory framework; if your primary goal is evidence, review, and postmortem quality, use this plugin.
+
+## Competitive context
+
+| Capability focus | Official `/export` | Recorder-style exporter | Memory frameworks | `dsh-session-export` |
+|---|---|---|---|---|
+| Primary outcome | Raw artifact download | Human-readable transcript | Context/memory optimization | **Evidence-grade replay report** |
+| Data source | Raw log package | Side-channel listener | Derived memory structures | **Canonical session log (`sessionQuery`)** |
+| Historical coverage | Backend-limited | Often partial without backfill | Usually selective recall | **Full history (incl. pre-install sessions)** |
+| Persistence backends | JSONL only | What the listener saw | Framework-specific | **Any backend (JSONL, SQLite, …)** |
+| Stats | — | In-panel counters | Framework-specific | **`/stats` card + cost estimate + tool ranking** |
+| Lineage / diffs / timeline | — | — | — | **Mermaid lineage, editor diffs, turn timeline** |
+| Batch | — | — | — | **`/archive --all --since`** |
+| Operational artifacts | Browser ZIP | Usually one-off exports | Memory state / indexes | **HTML/MD/JSON + `/stats` + `/archive` ZIPs** |
+
+## Roadmap (feature optimization)
+
+- **P0: evidence manifest** — optional `manifest.json` + `sha256` checksums for every generated artifact.
+- **P0: stricter redaction policy** — configurable `maskMode` (`off`/`mask`/`hash`) and per-field masking policy.
+- **P1: report diff mode** — compare two exports and generate a structured session delta report.
+- **P1: policy pack** — team-level presets for masking, retention, and output contract.
+- **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows.
+
 ## Why
 
-The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP through the browser and supports the JSONL backend only. This plugin covers what it explicitly defers:
-
-| | official `/export` | recorder-based plugins | this plugin |
-|---|---|---|---|
-| Output | raw log ZIP (browser download) | MD/HTML from a side-channel event stream | **styled HTML / Markdown / JSON to a host path** |
-| Data source | raw artifacts | bypass listener (memory-resident, drifts from the log) | **the session log itself via `sessionQuery`** |
-| Persistence backends | JSONL only | what the listener saw | **any backend** (JSONL, SQLite, …) |
-| Sessions before install | n/a | ❌ lost without snapshot backfill | ✅ **full history** |
-| Stats | — | in-panel counters | **`/stats` card + cost estimate + tool ranking** |
-| Lineage / diffs / timeline | — | — | ✅ Mermaid lineage, editor diffs, turn timeline |
-| Batch | — | — | ✅ `/archive --all --since` |
+The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP through the browser and supports the JSONL backend only. This plugin covers what it explicitly defers (see the table above).
 
 Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin renders **append-origin surface events** — everything the user actually saw — instead of the model-visible surface, whose compaction replacements would erase conversation the user already read.
 
@@ -131,6 +152,7 @@ Plugin row config (all optional):
 ## Known limitations
 
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
+- Report bytes are not reproducible (embedded generation timestamps); the planned evidence manifest provides integrity, not reproducibility.
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
 - Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.

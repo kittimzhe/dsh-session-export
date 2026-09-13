@@ -4,23 +4,44 @@
 
 [![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供会话复盘报告：`/transcript` 把会话写成**单文件 HTML 报告**或 Markdown/JSON 转录，`/stats` 在终端打印统计卡，`/archive` 把原始会话日志写成逐会话 ZIP——全部落到本机路径，且支持任意持久化后端（JSONL 或 SQLite）。
+为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供**确定性的会话证据报告**：`/transcript` 把会话写成**单文件 HTML 报告**或 Markdown/JSON 转录，`/stats` 在终端打印统计卡，`/archive` 把原始会话日志写成逐会话 ZIP——全部落到本机路径，且支持任意持久化后端（JSONL 或 SQLite）。
 
 **通过 `ctx.sessionQuery` 直读会话日志本身——无旁路采集、无驻留内存、无数据漂移。** 装插件之前的历史会话照样能导。
 
+## 项目定位
+
+`dsh-session-export` 是**会话证据层**，不是记忆优化器。
+
+- 核心价值是**可审计**（发生了什么、顺序如何、失败点在哪）。
+- 核心价值是**可复现**（稳定输出、可移植文件、确定性渲染）。
+- 核心价值是**可运维**（批量归档、落 Host 路径、可打印交付物）。
+
+如果你的主要目标是上下文压缩或语义记忆，优先用记忆框架；如果主要目标是复盘取证、代码评审和事故复盘，优先用本插件。
+
+## 竞品视角
+
+| 能力重心 | 官方 `/export` | 旁路监听型导出 | 记忆框架类插件 | `dsh-session-export` |
+|---|---|---|---|---|
+| 主要产物 | 原始日志下载 | 可读转录文本 | 记忆/上下文优化结果 | **证据级会话复盘报告** |
+| 数据来源 | 原始日志包 | 旁路事件流 | 推导后的记忆结构 | **会话主日志（`sessionQuery`）** |
+| 历史覆盖 | 受后端限制 | 无补录常不完整 | 通常按召回策略选取 | **全量历史（含装插件前会话）** |
+| 持久化后端 | 仅 JSONL | 监听器见到的 | 框架各异 | **任意后端（JSONL、SQLite…）** |
+| 统计 | — | 面板计数器 | 框架各异 | **`/stats` 卡片 + 成本估算 + 工具排行** |
+| 谱系 / diff / 时间轴 | — | — | — | **Mermaid 谱系、编辑器 diff、轮次时间轴** |
+| 批量 | — | — | — | **`/archive --all --since`** |
+| 运维交付 | 浏览器 ZIP | 常见单次导出 | 记忆状态/索引 | **HTML/MD/JSON + `/stats` + `/archive`** |
+
+## 功能优化路线图
+
+- **P0：证据清单** —— 可选输出 `manifest.json` + `sha256`，对每个导出物做可校验签名。
+- **P0：更严格脱敏策略** —— 引入 `maskMode`（`off`/`mask`/`hash`）与字段级策略。
+- **P1：报告对比模式** —— 对两次导出生成结构化差异报告。
+- **P1：团队策略包** —— 统一脱敏、保留期、导出契约的配置预设。
+- **P2：交接打包** —— 一条命令打包报告 + 原始归档 + 清单，直连评审流程。
+
 ## 为什么需要它
 
-官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端。本插件补上它明确推迟的部分：
-
-| | 官方 `/export` | 旁路监听型插件 | 本插件 |
-|---|---|---|---|
-| 输出 | 原始日志 ZIP（浏览器下载） | 来自旁路事件流的 MD/HTML | **写入 Host 路径的美化 HTML / Markdown / JSON** |
-| 数据源 | raw artifacts | 旁路监听器（常驻内存，与会话日志漂移） | **会话日志本身（sessionQuery）** |
-| 持久化后端 | 仅 JSONL | 只统计监听器见过的 | **任意后端**（JSONL、SQLite…） |
-| 装插件前的会话 | n/a | ❌ 无快照补录即丢失 | ✅ **全量历史可导** |
-| 统计 | — | 面板计数器 | **`/stats` 卡片 + 成本估算 + 工具排行** |
-| 谱系 / diff / 时间轴 | — | — | ✅ Mermaid 谱系、编辑器 diff、轮次时间轴 |
-| 批量 | — | — | ✅ `/archive --all --since` |
+官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端。本插件补上它明确推迟的部分（见上方对比表）。
 
 转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
 
@@ -132,6 +153,7 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 ## 已知限制
 
 - 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
+- 报告字节不可复现（内嵌生成时间戳）；规划中的 evidence manifest 提供的是完整性校验，而非可复现性。
 - Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
 - 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
 - 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。

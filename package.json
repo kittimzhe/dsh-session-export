@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-export",
-  "description": "Session replay reports for DeepSeek Harness: /transcript writes styled single-file HTML / Markdown / JSON reports to a host path via ctx.sessionQuery (any backend, incl. SQLite), /stats prints a terminal stats card, /archive writes per-session ZIPs",
+  "description": "Deterministic session evidence reports for DeepSeek Harness: /transcript writes styled single-file HTML / Markdown / JSON reports from canonical session logs, /stats prints a terminal stats card, /archive writes per-session ZIPs",
   "version": "1.1.0",
   "publishConfig": {
     "access": "public"
