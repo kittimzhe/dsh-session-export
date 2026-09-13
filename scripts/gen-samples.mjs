@@ -69,5 +69,6 @@ const input = {
 
 mkdirSync('docs/samples', { recursive: true })
 writeFileSync('docs/samples/sample.html', renderHtml(input))
+writeFileSync('docs/samples/sample-zh.html', renderHtml(input, { lang: 'zh' }))
 writeFileSync('docs/samples/sample.md', renderMarkdown(input))
-console.log('✅ docs/samples/sample.html + sample.md 已生成')
+console.log('✅ docs/samples/sample.html + sample-zh.html + sample.md 已生成')

@@ -219,6 +219,8 @@ export interface TranscriptConfig {
   readonly resultCharLimit?: number
   /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
   readonly mask?: boolean
+  /** UI label language for the HTML report (default 'en'). */
+  readonly lang?: 'en' | 'zh'
   /** Extra masking regex sources applied alongside the built-in rules. */
   readonly maskPatterns?: readonly string[]
   /** Token price table; cost rows appear only when both rates are set. */

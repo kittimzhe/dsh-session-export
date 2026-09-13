@@ -46,6 +46,7 @@
 ## HTML 报告长什么样
 
 ![HTML 报告（亮色主题）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-light.png)
+![HTML 报告（中文）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-zh.png)
 ![HTML 报告（暗色主题）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-dark.png)
 
 `/transcript --html` 写出一个自包含文件——不引外部 CSS/JS，离线可开：
@@ -54,7 +55,10 @@
 - **轮次时间轴**：每轮一条彩色横条，按墙钟占比着色
 - **工具排行**：横向条形图 + 每工具失败数
 - **Token sparkline**：内嵌 SVG，每条 assistant 消息的输出 token 分布
-- **错误焦点**：失败的工具结果红边框 + 横幅 + 自动展开
+- **错误焦点**：失败的工具结果红边框 + 横幅 + 自动展开；页头一键跳到第一个失败
+- **JSON 语法高亮**：工具参数与 JSON 结果按 token 着色（key 蓝/字符串绿/数字琥珀）——不引外部高亮库
+- **中英双语**：`lang: zh` 整份报告中文显示，默认英文
+- **原生 tooltip**：悬停 KPI 卡、时间轴条、sparkline 柱看明细
 - **原生折叠**：工具参数/结果与 reasoning 收进 `<details>`
 - **暗/亮主题**：跟随系统 `prefers-color-scheme`，可切换且记忆
 - **打印 → PDF**：`@media print` 规则；打印时自动展开全部折叠——Cmd+P 一步归档
@@ -107,6 +111,7 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
     defaultDir: /absolute/output/dir   # 默认：会话 cwd + dsh-transcripts/
     argCharLimit: 512                  # 工具参数渲染上限
     resultCharLimit: 2048              # 工具结果渲染上限
+    lang: zh                           # HTML 报告标签语言：默认 'en'，可 'zh'
     mask: true                         # 默认脱敏（--mask 按次开启）
     maskPatterns: ['OPS-\d+']          # 额外脱敏正则
     pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }

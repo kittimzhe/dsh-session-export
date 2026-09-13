@@ -138,6 +138,8 @@ interface TranscriptConfig {
   readonly resultCharLimit?: number;
   /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
   readonly mask?: boolean;
+  /** UI label language for the HTML report (default 'en'). */
+  readonly lang?: 'en' | 'zh';
   /** Extra masking regex sources applied alongside the built-in rules. */
   readonly maskPatterns?: readonly string[];
   /** Token price table; cost rows appear only when both rates are set. */
@@ -178,9 +180,13 @@ declare function renderMarkdown(input: RenderInput, options?: Partial<MarkdownRe
 declare function renderJson(input: RenderInput): string;
 //#endregion
 //#region src/render/html.d.ts
+/** Report label language; English is the default. */
+type ReportLang = 'en' | 'zh';
 interface HtmlRenderOptions {
   readonly argCharLimit: number;
   readonly resultCharLimit: number;
+  /** UI label language for the report (default `'en'`). */
+  readonly lang?: ReportLang;
 }
 declare const defaultHtmlOptions: HtmlRenderOptions;
 /** Render the complete single-file HTML report. */
@@ -296,4 +302,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig;
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type PricingConfig, type RenderInput, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderMarkdown, renderTimelineMermaid, renderToolDiff, sparkline };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderMarkdown, renderTimelineMermaid, renderToolDiff, sparkline };

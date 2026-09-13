@@ -22,6 +22,13 @@ Session replay report release: the plugin graduates from "export" to "report too
   (`7d`/`12h`/`30m`/`90s`), same grammar as `/archive --since`.
 - **`--errors-only`** — debug view: failed tool results with a two-entry
   context window; a filter note marks the output as a filtered view.
+- **JSON syntax highlighting** — tool arguments and JSON results get token
+  colors in the HTML report (pattern-based, zero dependencies).
+- **Bilingual HTML labels** — `lang: zh | en` config (default `en`).
+- **Native tooltips** — KPI cards, timeline bars, and sparkline bars carry
+  `title` details; no script needed.
+- **Error-jump anchor** — one click from the header to the first failed tool
+  result, with smooth scroll and target highlight.
 - **`--mask` / `mask` config** — redact likely secrets (Bearer headers,
   prefixed API keys, private-key blocks, emails) as a pre-render pass over
   message content, so all renderers benefit and JSON stays valid. Extra

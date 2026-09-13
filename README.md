@@ -54,7 +54,10 @@ Like every `ctx.commands` command, all three run on the human-command plane: res
 - **Turn timeline**: one colored bar per turn, proportional to wall-clock share
 - **Tool ranking**: horizontal bars with per-tool failure counts
 - **Token sparkline**: inline SVG, output tokens per assistant message
-- **Error focus**: failed tool results get a red border, banner, and auto-open
+- **Error focus**: failed tool results get a red border, banner, and auto-open; a header link jumps straight to the first failure
+- **JSON syntax highlighting**: tool arguments and JSON results get token colors (keys blue, strings green, numbers amber) — no external highlighter
+- **Bilingual labels**: `lang: zh` renders the entire report in Chinese; default is English
+- **Native tooltips**: hover KPI cards, timeline bars, and sparkline bars for details
 - **Native folding**: tool arguments/results and reasoning in `<details>`
 - **Dark/light theme**: follows `prefers-color-scheme`, toggle button, remembered
 - **Print → PDF**: `@media print` rules; printing auto-expands all folds — archival copies in one Cmd+P
@@ -107,6 +110,7 @@ Plugin row config (all optional):
     defaultDir: /absolute/output/dir   # default: session cwd + dsh-transcripts/
     argCharLimit: 512                  # rendered tool-argument cap
     resultCharLimit: 2048              # rendered tool-result cap
+    lang: zh                           # HTML report labels: 'en' (default) or 'zh'
     mask: true                         # redact secrets by default (--mask per run)
     maskPatterns: ['OPS-\d+']          # extra masking regexes
     pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }

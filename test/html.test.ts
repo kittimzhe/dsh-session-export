@@ -128,6 +128,79 @@ describe('renderHtml', () => {
     expect(out).toContain('entries within --last')
   })
 
+
+describe('renderHtml v1.0.0 Tier A', () => {
+  it('highlights JSON tool arguments with token spans', () => {
+    const out = renderHtml(buildInput())
+    expect(out).toContain('class="json"')
+    expect(out).toContain('hl-key')
+    expect(out).toContain('hl-str')
+  })
+
+  it('escapes HTML inside highlighted JSON strings', () => {
+    const full = buildInput()
+    const entry: TranscriptEntry = {
+      seq: 99, time: base, kind: 'assistant',
+      message: { id: 'm99' as never, role: 'assistant', source: { kind: 'model', provider: 'p', model: 'm' } as never,
+        content: [{ type: 'tool-call', id: 'c99' as never, name: 'bash', arguments: '{"cmd":"echo <b>x"}' }] },
+    }
+    const out = renderHtml({ ...full, entries: [entry] })
+    expect(out).toContain('&lt;b&gt;')
+    expect(out).not.toContain('<b>x')
+  })
+
+  it('leaves non-JSON tool arguments unhighlighted', () => {
+    const full = buildInput()
+    const entry: TranscriptEntry = {
+      seq: 98, time: base, kind: 'assistant',
+      message: { id: 'm98' as never, role: 'assistant', source: { kind: 'model', provider: 'p', model: 'm' } as never,
+        content: [{ type: 'tool-call', id: 'c98' as never, name: 'bash', arguments: 'plain shell text --flag' }] },
+    }
+    const out = renderHtml({ ...full, entries: [entry] })
+    expect(out).not.toContain('class="json"')
+  })
+
+  it('renders Chinese labels with lang zh and switches document lang', () => {
+    const out = renderHtml(buildInput(), { lang: 'zh' })
+    expect(out).toContain('lang="zh-CN"')
+    expect(out).toContain('消息')
+    expect(out).toContain('轮次时间轴')
+    expect(out).toContain('转录')
+    expect(out).toContain('工具失败：')
+    expect(out).toContain('◐ 主题')
+  })
+
+  it('keeps English labels by default', () => {
+    const out = renderHtml(buildInput())
+    expect(out).toContain('lang="en"')
+    expect(out).toContain('Turn timeline')
+    expect(out).toContain('Messages')
+  })
+
+  it('adds tooltips to KPI cards, timeline bars, and sparkline rects', () => {
+    const out = renderHtml(buildInput())
+    expect(out).toMatch(/class="kpi" title="/)
+    expect(out).toMatch(/class="tl-bar"[^>]*title="Turn 1/)
+    expect(out).toMatch(/<rect[^>]*title="#1 /)
+  })
+
+  it('renders the error-jump anchor when failures exist', () => {
+    const out = renderHtml(buildInput())
+    expect(out).toContain('id="error-1"')
+    expect(out).toContain('class="jump-error" href="#error-1"')
+    expect(out).toContain('1 failed · jump to first')
+  })
+
+  it('omits the error-jump anchor when nothing failed', () => {
+    const clean = buildInput()
+    const entries = clean.entries.slice(0, 5)
+    const out = renderHtml({ ...clean, entries, stats: computeStats(entries) })
+    expect(out).not.toContain('class="jump-error"')
+    expect(out).not.toContain('href="#error-')
+    expect(out).not.toContain('id="error-')
+  })
+})
+
   it('omits the sparkline for a single assistant message', () => {
     const full = buildInput()
     const single: RenderInput = { ...full, entries: full.entries.slice(0, 2), stats: computeStats(full.entries.slice(0, 2)) }
