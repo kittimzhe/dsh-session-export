@@ -34,7 +34,7 @@ If your primary goal is context compression or long-term semantic memory, use a 
 ## Roadmap
 
 - **P1: report diff mode** — compare two exports and generate a structured session delta report.
-- **P1: policy pack** — team-level presets for masking, retention, and output contract.
+- **P1: policy pack** — team-level presets for masking, retention, and output contract (shipped in v1.5.0 → `preset: 'compliance' | 'full'`).
 - **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows (shipped in v1.4.0 → `/bundle`).
 
 ## Why
@@ -137,6 +137,7 @@ Plugin row config (all optional):
 - id: session-export
   name: 'dsh-session-export'
   config:
+    preset: compliance                 # one-line policy pack: 'baseline' (default), 'compliance', 'full'
     defaultDir: /absolute/output/dir   # default: session cwd + dsh-transcripts/
     argCharLimit: 512                  # rendered tool-argument cap
     resultCharLimit: 2048              # rendered tool-result cap

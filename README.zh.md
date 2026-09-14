@@ -34,8 +34,8 @@
 ## 功能优化路线图
 
 - **P1：报告对比模式** —— 对两次导出生成结构化差异报告。
-- **P1：团队策略包** —— 统一脱敏、保留期、导出契约的配置预设。
-- **P2：交接打包** —— 一条命令打包报告 + 原始归档 + 清单，直连评审流程。
+- **P1：团队策略包** —— 统一脱敏、保留期、导出契约的配置预设（v1.5.0 已交付 → `preset: 'compliance' | 'full'`）。
+- **P2：交接打包** —— 一条命令打包报告 + 原始归档 + 清单，直连评审流程（v1.4.0 已交付 → `/bundle`）。
 
 ## 为什么需要它
 
@@ -134,6 +134,7 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 - id: session-export
   name: 'dsh-session-export'
   config:
+    preset: compliance                 # 一行策略包：'baseline'（默认）、'compliance'、'full'
     defaultDir: /absolute/output/dir   # 默认：会话 cwd + dsh-transcripts/
     argCharLimit: 512                  # 工具参数渲染上限
     resultCharLimit: 2048              # 工具结果渲染上限

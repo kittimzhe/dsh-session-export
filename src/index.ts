@@ -20,6 +20,7 @@ import { executeTranscript, type TranscriptConfig } from './command.ts'
 import { executeArchive, type ArchiveConfig } from './archive.ts'
 import { executeStats } from './statsCommand.ts'
 import { executeBundle } from './bundleCommand.ts'
+import { resolvePreset, type PresetName } from './presets.ts'
 
 export const name = 'session-export'
 export const inject = ['commands', 'sessionQuery']
@@ -43,6 +44,8 @@ export { sha256Text, describeArtifact, buildManifest, renderManifest, verifyMani
 export type { ExportManifest, ManifestArtifact, ManifestScope } from './manifest.ts'
 export type { StatsCardOptions } from './stats.ts'
 export { parseStatsArgs, STATS_USAGE } from './statsCommand.ts'
+export { resolvePreset, PRESETS } from './presets.ts'
+export type { PresetName } from './presets.ts'
 export { createExportTool, EXPORT_TOOL_DESCRIPTION } from './exportTool.ts'
 export type { ExportEngine, ExportToolResult } from './exportTool.ts'
 export { renderEditorDiff, renderToolDiff, parseToolArguments } from './render/diff.ts'
@@ -62,31 +65,35 @@ export { buildZip } from './util/zip.ts'
 export type { ZipEntry } from './util/zip.ts'
 
 /** Combined plugin configuration (flat, backward compatible with v0.1.0). */
-export type SessionExportConfig = TranscriptConfig & ArchiveConfig
+export type SessionExportConfig = TranscriptConfig & ArchiveConfig & {
+  /** One-line policy pack shortcut: 'baseline' (default), 'compliance', or 'full'. Preset defaults are applied first; explicit config rows override. */
+  readonly preset?: PresetName
+}
 
 /** Plugin entry: mount the /transcript and /archive commands. */
 export function apply(ctx: Context, config?: SessionExportConfig): void {
+  const resolved = resolvePreset(config)
   ctx.effect(
     function* () {
       yield ctx.commands.register({
         name: 'transcript',
         description: 'Export this session (or another, via --id) as a Markdown/JSON transcript to a host path',
-        handler: (invocation) => executeTranscript(ctx, invocation, config),
+        handler: (invocation) => executeTranscript(ctx, invocation, resolved),
       })
       yield ctx.commands.register({
         name: 'archive',
         description: 'Archive raw session logs (any backend, incl. SQLite) as per-session ZIPs to a host path',
-        handler: (invocation) => executeArchive(ctx, invocation, config),
+        handler: (invocation) => executeArchive(ctx, invocation, resolved),
       })
       yield ctx.commands.register({
         name: 'stats',
         description: 'Print a session stats card (messages, tools, tokens, duration, cost) — no files written',
-        handler: (invocation) => executeStats(ctx, invocation, config),
+        handler: (invocation) => executeStats(ctx, invocation, resolved),
       })
       yield ctx.commands.register({
         name: 'bundle',
         description: 'Pack one session into a review ZIP: transcript + raw archive + manifest',
-        handler: (invocation) => executeBundle(ctx, invocation, config),
+        handler: (invocation) => executeBundle(ctx, invocation, resolved),
       })
     },
     'session-export lifecycle',
@@ -100,7 +107,7 @@ export function apply(ctx: Context, config?: SessionExportConfig): void {
       function* () {
         const tools = (ctx as { tools?: { register(tool: ToolDefinition): Disposable } }).tools
         if (tools == null || typeof tools.register !== 'function') return
-        yield tools.register(createExportTool(config, ctx.sessionQuery))
+        yield tools.register(createExportTool(resolved, ctx.sessionQuery))
       },
       'session-export tool lifecycle',
     )

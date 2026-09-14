@@ -279,6 +279,21 @@ declare function buildArchiveFromLog(log: {
   eventCount: number;
 };
 //#endregion
+//#region src/presets.d.ts
+/** Built-in preset names. */
+type PresetName = 'baseline' | 'compliance' | 'full';
+/** Named presets — each is a partial TranscriptConfig whose fields act as fallback defaults. */
+declare const PRESETS: Readonly<Record<PresetName, Partial<TranscriptConfig>>>;
+/**
+ * Resolve a named preset against explicit config.
+ *
+ * The preset fills in defaults first; the caller's config overrides
+ * everything. Returns a new object; never mutates the input.
+ */
+declare function resolvePreset<C extends {
+  preset?: PresetName;
+}>(config?: C): C & Partial<TranscriptConfig>;
+//#endregion
 //#region src/bundleCommand.d.ts
 /** /bundle = zip: no extra config beyond what /transcript and /archive already share. */
 type BundleConfig = TranscriptConfig;
@@ -441,8 +456,11 @@ declare function buildZip(entries: readonly ZipEntry[], nowMs?: number): Uint8Ar
 declare const name = "session-export";
 declare const inject: string[];
 /** Combined plugin configuration (flat, backward compatible with v0.1.0). */
-type SessionExportConfig = TranscriptConfig & ArchiveConfig;
+type SessionExportConfig = TranscriptConfig & ArchiveConfig & {
+  /** One-line policy pack shortcut: 'baseline' (default), 'compliance', or 'full'. Preset defaults are applied first; explicit config rows override. */
+  readonly preset?: PresetName;
+};
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, executeBundle, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, PRESETS, type PresetName, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, executeBundle, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, resolvePreset, sha256Text, sparkline, verifyManifest };
