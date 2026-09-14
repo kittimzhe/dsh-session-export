@@ -33,7 +33,7 @@ If your primary goal is context compression or long-term semantic memory, use a 
 
 ## Roadmap
 
-- **P1: report diff mode** — compare two exports and generate a structured session delta report.
+- **P1: report diff mode** — compare two exports and generate a structured session delta report (shipped in v1.6.0 → `/diff <id1> <id2>`).
 - **P1: policy pack** — team-level presets for masking, retention, and output contract (shipped in v1.5.0 → `preset: 'compliance' | 'full'`).
 - **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows (shipped in v1.4.0 → `/bundle`).
 
@@ -64,6 +64,7 @@ Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin rende
 | `/bundle --no-archive` | Transcript-only review pack |
 | `/archive` | Archive the current session (incl. subagent descendants) → per-session ZIP |
 | `/archive --all --since 7d` | Batch-archive every session from the last 7 days |
+| `/diff <id1> <id2>` | **Session diff**: compare two sessions — common prefix, unique tails, stats delta (terminal or `--html` report) |
 
 Like every `ctx.commands` command, all four run on the human-command plane: results never enter model history and cost zero tokens.
 

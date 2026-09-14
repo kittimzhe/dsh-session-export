@@ -316,6 +316,57 @@ declare function parseBundleArgs(rest: string): BundleArgs | string;
 /** Execute `/bundle` — read, build, zip, write. */
 declare function executeBundle(ctx: Context, invocation: CommandInvocation, config?: BundleConfig): Promise<CommandResult>;
 //#endregion
+//#region src/diffCommand.d.ts
+interface DiffArgs {
+  sessionIdA: string;
+  sessionIdB: string;
+  html: boolean;
+  outPath?: string;
+}
+interface DiffTotals {
+  a: TranscriptTotals;
+  b: TranscriptTotals;
+  delta: {
+    messages: number;
+    toolCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+  };
+}
+interface DiffResult {
+  sessionA: {
+    id: string;
+    createdAt: number;
+    cwd?: string;
+  };
+  sessionB: {
+    id: string;
+    createdAt: number;
+    cwd?: string;
+  };
+  totalA: number;
+  totalB: number;
+  commonPrefixLen: number;
+  tailA: TranscriptEntry[];
+  tailB: TranscriptEntry[];
+  totals: DiffTotals;
+}
+declare const DIFF_USAGE: string;
+/** Parse `/diff` arguments. Returns a string on error. */
+declare function parseDiffArgs(rest: string): DiffArgs | string;
+/** Create a stable content fingerprint for one entry — used for LCP matching. */
+declare function entryFingerprint(entry: TranscriptEntry): string;
+/** Compute the diff of two entry arrays. */
+declare function diffSessions(entriesA: readonly TranscriptEntry[], entriesB: readonly TranscriptEntry[]): {
+  commonPrefixLen: number;
+  tailA: TranscriptEntry[];
+  tailB: TranscriptEntry[];
+};
+/** Render a compact terminal diff summary. */
+declare function renderTerminalDiff(result: DiffResult): string;
+/** Execute `/diff` — read two sessions, compute diff, render. */
+declare function executeDiff(ctx: Context, invocation: CommandInvocation, config?: TranscriptConfig): Promise<CommandResult>;
+//#endregion
 //#region src/render/markdown.d.ts
 interface MarkdownRenderOptions {
   readonly argCharLimit: number;
@@ -463,4 +514,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig & {
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, PRESETS, type PresetName, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, executeBundle, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, resolvePreset, sha256Text, sparkline, verifyManifest };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, DIFF_USAGE, type DiffArgs, type DiffResult, type DiffTotals, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, PRESETS, type PresetName, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, diffSessions, entryFingerprint, executeBundle, executeDiff, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseDiffArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTerminalDiff, renderTimelineMermaid, renderToolDiff, resolvePreset, sha256Text, sparkline, verifyManifest };

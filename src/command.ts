@@ -297,7 +297,7 @@ export interface TranscriptConfig {
 }
 
 /** Generator identity stamped into every artifact and manifest. */
-export const GENERATOR = 'dsh-session-export v1.5.0'
+export const GENERATOR = 'dsh-session-export v1.6.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(

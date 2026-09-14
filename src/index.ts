@@ -20,6 +20,7 @@ import { executeTranscript, type TranscriptConfig } from './command.ts'
 import { executeArchive, type ArchiveConfig } from './archive.ts'
 import { executeStats } from './statsCommand.ts'
 import { executeBundle } from './bundleCommand.ts'
+import { executeDiff, parseDiffArgs, DIFF_USAGE } from './diffCommand.ts'
 import { resolvePreset, type PresetName } from './presets.ts'
 
 export const name = 'session-export'
@@ -31,6 +32,8 @@ export type { ArchiveConfig, ArchiveArgs } from './archive.ts'
 export { parseArchiveArgs, ARCHIVE_USAGE, buildArchiveFromLog } from './archive.ts'
 export { executeBundle, parseBundleArgs, BUNDLE_USAGE } from './bundleCommand.ts'
 export type { BundleArgs, BundleConfig } from './bundleCommand.ts'
+export { executeDiff, parseDiffArgs, DIFF_USAGE, entryFingerprint, diffSessions, renderTerminalDiff } from './diffCommand.ts'
+export type { DiffArgs, DiffResult, DiffTotals } from './diffCommand.ts'
 export { renderMarkdown, defaultMarkdownOptions } from './render/markdown.ts'
 export type { MarkdownRenderOptions } from './render/markdown.ts'
 export { renderJson } from './render/json.ts'
@@ -89,6 +92,11 @@ export function apply(ctx: Context, config?: SessionExportConfig): void {
         name: 'stats',
         description: 'Print a session stats card (messages, tools, tokens, duration, cost) — no files written',
         handler: (invocation) => executeStats(ctx, invocation, resolved),
+      })
+      yield ctx.commands.register({
+        name: 'diff',
+        description: 'Compare two sessions and show what diverged (metadata, stats, tails)',
+        handler: (invocation) => executeDiff(ctx, invocation, resolved),
       })
       yield ctx.commands.register({
         name: 'bundle',
