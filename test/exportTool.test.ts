@@ -102,7 +102,7 @@ describe('transcript_export execute', () => {
     expect(md.written[0]).toMatch(/\.md$/)
     const json = await run(createExportTool({ defaultDir: dir }, makeEngine()), { session_id: 's-x', format: 'json' })
     expect(json.written[0]).toMatch(/\.json$/)
-    expect(JSON.parse(readFileSync(json.written[0]!, 'utf8')).generator).toContain('dsh-session-export v1.3.0')
+    expect(JSON.parse(readFileSync(json.written[0]!, 'utf8')).generator).toContain('dsh-session-export v1.4.0')
   })
 
   it('masks secrets when asked and reports the mode', async () => {
@@ -122,7 +122,7 @@ describe('transcript_export execute', () => {
     expect(manifest.artifacts).toHaveLength(1)
     expect(manifest.artifacts[0].path).toBe(out.written[0])
     expect(manifest.mask.mode).toBe('off')
-    expect(manifest.generator).toContain('v1.3.0')
+    expect(manifest.generator).toContain('v1.4.0')
   })
 
   it('never overwrites: repeated exports create distinct timestamped files', async () => {

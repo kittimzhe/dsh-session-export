@@ -19,6 +19,7 @@ import { createExportTool } from './exportTool.ts'
 import { executeTranscript, type TranscriptConfig } from './command.ts'
 import { executeArchive, type ArchiveConfig } from './archive.ts'
 import { executeStats } from './statsCommand.ts'
+import { executeBundle } from './bundleCommand.ts'
 
 export const name = 'session-export'
 export const inject = ['commands', 'sessionQuery']
@@ -26,7 +27,9 @@ export const inject = ['commands', 'sessionQuery']
 export type { TranscriptConfig } from './command.ts'
 export { parseTranscriptArgs, USAGE, buildEntries, buildTotals, buildLogOnly, id8 } from './command.ts'
 export type { ArchiveConfig, ArchiveArgs } from './archive.ts'
-export { parseArchiveArgs, ARCHIVE_USAGE } from './archive.ts'
+export { parseArchiveArgs, ARCHIVE_USAGE, buildArchiveFromLog } from './archive.ts'
+export { executeBundle, parseBundleArgs, BUNDLE_USAGE } from './bundleCommand.ts'
+export type { BundleArgs, BundleConfig } from './bundleCommand.ts'
 export { renderMarkdown, defaultMarkdownOptions } from './render/markdown.ts'
 export type { MarkdownRenderOptions } from './render/markdown.ts'
 export { renderJson } from './render/json.ts'
@@ -79,6 +82,11 @@ export function apply(ctx: Context, config?: SessionExportConfig): void {
         name: 'stats',
         description: 'Print a session stats card (messages, tools, tokens, duration, cost) — no files written',
         handler: (invocation) => executeStats(ctx, invocation, config),
+      })
+      yield ctx.commands.register({
+        name: 'bundle',
+        description: 'Pack one session into a review ZIP: transcript + raw archive + manifest',
+        handler: (invocation) => executeBundle(ctx, invocation, config),
       })
     },
     'session-export lifecycle',

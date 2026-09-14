@@ -58,6 +58,15 @@ export function describeArtifact(path: string, content: string): ManifestArtifac
   return { path, bytes: Buffer.byteLength(content, 'utf8'), sha256: sha256Text(content) }
 }
 
+function sha256Binary(data: Uint8Array): string {
+  return createHash('sha256').update(data).digest('hex')
+}
+
+/** Like {@link describeArtifact} but for binary content; sha256 runs over the raw bytes. */
+export function describeBinaryArtifact(path: string, data: Uint8Array): ManifestArtifact {
+  return { path, bytes: data.length, sha256: sha256Binary(data) }
+}
+
 /** Assemble the manifest document. */
 export function buildManifest(input: {
   generator: string

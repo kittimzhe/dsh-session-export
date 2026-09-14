@@ -1,7 +1,7 @@
 import { ToolDefinition } from "@deepseek-ai/dsh-tools";
 import { SessionEvent, SessionHeader, SessionId } from "@deepseek-ai/dsh-session";
 import { Context } from "@deepseek-ai/cordis";
-import "@deepseek-ai/dsh-commands";
+import { CommandInvocation, CommandResult } from "@deepseek-ai/dsh-commands";
 import { Message, TokenUsage } from "@deepseek-ai/dsh-llm";
 //#region src/types.d.ts
 /** One surface event projected to the message the user actually saw. */
@@ -269,6 +269,37 @@ interface ArchiveConfig {
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseArchiveArgs(rawInput: string): ArchiveArgs | string;
+/** Build one session's archive ZIP; returns the bytes and the event count. */
+/** Build an archive ZIP from an already-read log (pure — no ctx). */
+declare function buildArchiveFromLog(log: {
+  session: SessionHeader;
+  events: SessionEvent[];
+}): {
+  zip: Uint8Array;
+  eventCount: number;
+};
+//#endregion
+//#region src/bundleCommand.d.ts
+/** /bundle = zip: no extra config beyond what /transcript and /archive already share. */
+type BundleConfig = TranscriptConfig;
+interface BundleArgs {
+  sessionId?: string;
+  md: boolean;
+  html: boolean;
+  json: boolean;
+  errorsOnly: boolean;
+  since?: number;
+  mask: boolean;
+  manifest: boolean;
+  noTranscript: boolean;
+  noArchive: boolean;
+  outPath?: string;
+}
+declare const BUNDLE_USAGE: string;
+/** Parse `/bundle` arguments. Returns a string on error. */
+declare function parseBundleArgs(rest: string): BundleArgs | string;
+/** Execute `/bundle` — read, build, zip, write. */
+declare function executeBundle(ctx: Context, invocation: CommandInvocation, config?: BundleConfig): Promise<CommandResult>;
 //#endregion
 //#region src/render/markdown.d.ts
 interface MarkdownRenderOptions {
@@ -414,4 +445,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig;
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, executeBundle, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };

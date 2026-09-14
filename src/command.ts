@@ -157,7 +157,7 @@ export function id8(id: string): string {
   return id.replace(/^session-/, '').slice(0, 8)
 }
 
-function timestampSlug(epochMs: number): string {
+export function timestampSlug(epochMs: number): string {
   const d = new Date(epochMs)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
@@ -297,7 +297,7 @@ export interface TranscriptConfig {
 }
 
 /** Generator identity stamped into every artifact and manifest. */
-export const GENERATOR = 'dsh-session-export v1.3.0'
+export const GENERATOR = 'dsh-session-export v1.4.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(

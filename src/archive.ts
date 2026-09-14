@@ -41,7 +41,7 @@ export interface ArchiveConfig {
 }
 
 const TOOL = 'dsh-session-export'
-const TOOL_VERSION = '1.3.0'
+const TOOL_VERSION = '1.4.0'
 
 interface ArchiveManifest {
   readonly schemaVersion: 1
@@ -156,8 +156,8 @@ async function collectWithDescendants(
 }
 
 /** Build one session's archive ZIP; returns the bytes and the event count. */
-async function buildArchiveZip(ctx: Context, header: SessionHeader): Promise<{ zip: Uint8Array; eventCount: number }> {
-  const log = await ctx.sessionQuery.readSession(header.id)
+/** Build an archive ZIP from an already-read log (pure — no ctx). */
+export function buildArchiveFromLog(log: { session: SessionHeader; events: SessionEvent[] }): { zip: Uint8Array; eventCount: number } {
   const jsonl = log.events.map(eventToJsonlLine).join('\n') + (log.events.length > 0 ? '\n' : '')
   const manifest: ArchiveManifest = {
     schemaVersion: 1,
@@ -178,6 +178,11 @@ async function buildArchiveZip(ctx: Context, header: SessionHeader): Promise<{ z
     { name: 'manifest.json', data: new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`) },
   ])
   return { zip, eventCount: log.events.length }
+}
+
+async function buildArchiveZip(ctx: Context, header: SessionHeader): Promise<{ zip: Uint8Array; eventCount: number }> {
+  const log = await ctx.sessionQuery.readSession(header.id)
+  return buildArchiveFromLog(log)
 }
 
 /** Execute `/archive` against the session-query seam. */

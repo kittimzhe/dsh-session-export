@@ -61,8 +61,11 @@
 | `/stats` | **终端统计卡**：消息、轮次、时长、工具调用（含失败）、token、成本、工具排行、sparkline——不写文件 |
 | `/archive` | 归档当前会话（含子代理后代）→ 逐会话 ZIP |
 | `/archive --all --since 7d` | 批量归档最近 7 天的全部会话 |
+| `/bundle` | **一键审查 ZIP**：转录报告 + 原始 JSONL 归档 + sha256 证据清单，为审计/审查流程设计 |
+| `/bundle --mask --manifest` | 脱敏转录 + 证据清单 |
+| `/bundle --no-archive` | 仅转录报告（不含原始归档） |
 
-与所有 `ctx.commands` 命令一样，三个命令都运行在人类命令平面：结果不进模型历史，零 token 消耗。
+与所有 `ctx.commands` 命令一样，四个命令都运行在人类命令平面：结果不进模型历史，零 token 消耗。
 
 ## HTML 报告长什么样
 

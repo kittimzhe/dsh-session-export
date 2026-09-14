@@ -35,7 +35,7 @@ If your primary goal is context compression or long-term semantic memory, use a 
 
 - **P1: report diff mode** — compare two exports and generate a structured session delta report.
 - **P1: policy pack** — team-level presets for masking, retention, and output contract.
-- **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows.
+- **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows (shipped in v1.4.0 → `/bundle`).
 
 ## Why
 
@@ -59,10 +59,13 @@ Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin rende
 | `/transcript --manifest` | **Evidence manifest**: write a `.manifest.json` sidecar with byte size + SHA-256 for every artifact of this run |
 | `/transcript --full` | Append log-only events + Mermaid turn timeline |
 | `/stats` | **Terminal stats card**: messages, turns, duration, tool calls (with failures), tokens, cost, per-tool ranking, sparkline — no files written |
+| `/bundle` | **Review ZIP**: transcript report(s) + raw JSONL archive + sha256 evidence manifest — one command for audit/review workflows |
+| `/bundle --mask --manifest` | Redacted transcript + evidence manifest |
+| `/bundle --no-archive` | Transcript-only review pack |
 | `/archive` | Archive the current session (incl. subagent descendants) → per-session ZIP |
 | `/archive --all --since 7d` | Batch-archive every session from the last 7 days |
 
-Like every `ctx.commands` command, all three run on the human-command plane: results never enter model history and cost zero tokens.
+Like every `ctx.commands` command, all four run on the human-command plane: results never enter model history and cost zero tokens.
 
 ## Model-facing tool (v1.3)
 
