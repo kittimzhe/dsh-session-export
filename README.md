@@ -2,7 +2,7 @@
 
 English | [中文](https://github.com/kittimzhe/dsh-session-export/blob/main/README.zh.md)
 
-[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kittimzhe/dsh-session-export/blob/main/LICENSE)
 
 Deterministic session evidence reports for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): `/transcript` writes a **styled single-file HTML report** or Markdown/JSON transcript, `/stats` prints a terminal stats card, and `/archive` writes raw session logs as per-session ZIPs — all to a **host path**, on any persistence backend (JSONL or SQLite).
 
@@ -31,10 +31,8 @@ If your primary goal is context compression or long-term semantic memory, use a 
 | Batch | — | — | — | **`/archive --all --since`** |
 | Operational artifacts | Browser ZIP | Usually one-off exports | Memory state / indexes | **HTML/MD/JSON + `/stats` + `/archive` ZIPs** |
 
-## Roadmap (feature optimization)
+## Roadmap
 
-- **P0: evidence manifest** — optional `manifest.json` + `sha256` checksums for every generated artifact.
-- **P0: stricter redaction policy** — configurable `maskMode` (`off`/`mask`/`hash`) and per-field masking policy.
 - **P1: report diff mode** — compare two exports and generate a structured session delta report.
 - **P1: policy pack** — team-level presets for masking, retention, and output contract.
 - **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows.
@@ -57,6 +55,8 @@ Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin rende
 | `/transcript --last 30m` | **Partial export**: entries from the last 30 minutes (`7d`/`12h`/`30m`/`90s`) |
 | `/transcript --errors-only` | **Debug view**: failed tool results with a two-entry context window |
 | `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails) from the output |
+| `/transcript --mask-hash` | **Deterministic redaction**: secrets become `#xxxxxxxx` digests — same secret → same marker, equality survives redaction |
+| `/transcript --manifest` | **Evidence manifest**: write a `.manifest.json` sidecar with byte size + SHA-256 for every artifact of this run |
 | `/transcript --full` | Append log-only events + Mermaid turn timeline |
 | `/stats` | **Terminal stats card**: messages, turns, duration, tool calls (with failures), tokens, cost, per-tool ranking, sparkline — no files written |
 | `/archive` | Archive the current session (incl. subagent descendants) → per-session ZIP |
@@ -135,7 +135,9 @@ Plugin row config (all optional):
     resultCharLimit: 2048              # rendered tool-result cap
     lang: zh                           # HTML report labels: 'en' (default) or 'zh'
     mask: true                         # redact secrets by default (--mask per run)
+    maskMode: hash                     # replacement mode: 'mask' (placeholders, default) or 'hash' (deterministic digests)
     maskPatterns: ['OPS-\d+']          # extra masking regexes
+    manifest: true                     # write a .manifest.json sidecar by default (--manifest per run)
     pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }
     archiveDir: /absolute/output/dir   # default: session cwd + .dsh-archives/
     includeDescendants: true           # /archive --id default
@@ -152,7 +154,7 @@ Plugin row config (all optional):
 ## Known limitations
 
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
-- Report bytes are not reproducible (embedded generation timestamps); the planned evidence manifest provides integrity, not reproducibility.
+- Report bytes are not reproducible (embedded generation timestamps); `--manifest` provides integrity (SHA-256 per artifact), not reproducibility.
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
 - Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.

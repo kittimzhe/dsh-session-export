@@ -4,7 +4,8 @@
  * Grammar (command-owned, per dsh-commands: consumers own their grammar):
  *   /transcript [path] [--id <sessionId>] [--out <path…>]
  *               [--json] [--md] [--html] [--full]
- *               [--last <duration>] [--errors-only] [--mask]
+ *               [--last <duration>] [--errors-only] [--mask] [--mask-hash]
+ *               [--manifest]
  */
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-session-query'
@@ -18,12 +19,13 @@ import { renderJson } from './render/json.ts'
 import { renderHtml } from './render/html.ts'
 import { computeStats } from './stats.ts'
 import { maskEntries } from './mask.ts'
+import { buildManifest, describeArtifact, renderManifest } from './manifest.ts'
 import type { PricingConfig } from './types.ts'
 import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 
 export const USAGE =
-  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask]'
+  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]'
 
 export interface TranscriptArgs {
   readonly sessionId?: string
@@ -36,12 +38,16 @@ export interface TranscriptArgs {
   readonly since?: number
   readonly errorsOnly: boolean
   readonly mask: boolean
+  /** `--mask-hash`: redact with deterministic digests instead of placeholders. */
+  readonly maskHash: boolean
+  /** `--manifest`: write a `.manifest.json` sidecar with per-artifact sha256. */
+  readonly manifest: boolean
 }
 
 /** Parse raw command input; returns args or a usage-error string. */
 export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
   const trimmed = rawInput.trim()
-  if (trimmed.length === 0) return { json: false, md: true, html: false, full: false, errorsOnly: false, mask: false }
+  if (trimmed.length === 0) return { json: false, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false }
   const tokens = trimmed.split(/\s+/)
   const args: {
     sessionId?: string
@@ -53,6 +59,8 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     since?: number
     errorsOnly: boolean
     mask: boolean
+    maskHash: boolean
+    manifest: boolean
   } = {
     json: false,
     md: false,
@@ -60,6 +68,8 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     full: false,
     errorsOnly: false,
     mask: false,
+    maskHash: false,
+    manifest: false,
   }
   let positional: string | undefined
   let i = 0
@@ -102,6 +112,17 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     }
     if (token === '--mask') {
       args.mask = true
+      i += 1
+      continue
+    }
+    if (token === '--mask-hash') {
+      args.mask = true
+      args.maskHash = true
+      i += 1
+      continue
+    }
+    if (token === '--manifest') {
+      args.manifest = true
       i += 1
       continue
     }
@@ -219,6 +240,10 @@ export interface TranscriptConfig {
   readonly resultCharLimit?: number
   /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
   readonly mask?: boolean
+  /** Replacement mode when masking: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
+  readonly maskMode?: 'mask' | 'hash'
+  /** Write a `.manifest.json` sidecar with per-artifact sha256 (default false; `--manifest` turns it on per run). */
+  readonly manifest?: boolean
   /** UI label language for the HTML report (default 'en'). */
   readonly lang?: 'en' | 'zh'
   /** Extra masking regex sources applied alongside the built-in rules. */
@@ -227,7 +252,7 @@ export interface TranscriptConfig {
   readonly pricing?: PricingConfig
 }
 
-const GENERATOR = 'dsh-session-export v1.1.0'
+const GENERATOR = 'dsh-session-export v1.2.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(
@@ -295,8 +320,9 @@ export async function executeTranscript(
 
   const totals = buildTotals(entries)
   const stats = computeStats(entries, config?.pricing)
-  const mask = args.mask || config?.mask === true
-  const renderedEntries = mask ? maskEntries(entries, { extraPatterns: config?.maskPatterns }) : entries
+  const maskOn = args.mask || config?.mask === true
+  const maskMode: 'off' | 'mask' | 'hash' = !maskOn ? 'off' : args.maskHash ? 'hash' : (config?.maskMode ?? 'mask')
+  const renderedEntries = maskOn ? maskEntries(entries, { extraPatterns: config?.maskPatterns, mode: maskMode === 'hash' ? 'hash' : 'mask' }) : entries
   const input: RenderInput = {
     header: log.session,
     entries: renderedEntries,
@@ -337,9 +363,34 @@ export async function executeTranscript(
     outputs.push({ path, content: renderJson(input) })
   }
 
+  const manifestOn = args.manifest || config?.manifest === true
+  let manifestPath: string | undefined
+  if (manifestOn) {
+    manifestPath =
+      defaultPath !== undefined
+        ? `${defaultPath}.manifest.json`
+        : `${(args.outPath ?? 'transcript').replace(/\.(md|html|json)$/i, '')}.manifest.json`
+  }
+
   try {
     for (const output of outputs) {
       await atomicWriteFile(output.path, output.content)
+    }
+    if (manifestPath !== undefined) {
+      const manifest = buildManifest({
+        generator: GENERATOR,
+        createdAt: input.generatedAt,
+        session: { id: log.session.id, createdAt: log.session.createdAt },
+        scope: {
+          entries: entries.length,
+          errorsOnly: args.errorsOnly,
+          ...(args.since !== undefined ? { since: args.since } : {}),
+          full: args.full,
+        },
+        mask: { mode: maskMode },
+        artifacts: outputs.map((output) => describeArtifact(output.path, output.content)),
+      })
+      await atomicWriteFile(manifestPath, renderManifest(manifest))
     }
   } catch (error) {
     return {
@@ -349,9 +400,11 @@ export async function executeTranscript(
   }
 
   const written = outputs.map((output) => output.path).join(', ')
+  const manifestNote = manifestPath !== undefined ? ` (+ ${manifestPath})` : ''
+  const maskNote = maskMode !== 'off' ? `, ${maskMode}-redacted` : ''
   return {
     kind: 'success',
-    text: `Exported ${totals.messages} messages (${totals.toolCalls} tool calls, ${totals.inputTokens + totals.outputTokens} tokens) → ${written}`,
+    text: `Exported ${totals.messages} messages (${totals.toolCalls} tool calls, ${totals.inputTokens + totals.outputTokens} tokens${maskNote}) → ${written}${manifestNote}`,
   }
 }
 

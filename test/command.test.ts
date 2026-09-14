@@ -14,18 +14,18 @@ describe('id8 slug', () => {
 
 describe('parseTranscriptArgs', () => {
   it('empty input defaults to markdown of the current session', () => {
-    expect(parseTranscriptArgs('')).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: false })
-    expect(parseTranscriptArgs('   ')).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: false })
+    expect(parseTranscriptArgs('')).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
+    expect(parseTranscriptArgs('   ')).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('positional path becomes outPath', () => {
     const result = parseTranscriptArgs('./out.md')
-    expect(result).toEqual({ outPath: './out.md', json: false, md: true, html: false, full: false, errorsOnly: false, mask: false })
+    expect(result).toEqual({ outPath: './out.md', json: false, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--id consumes the next token', () => {
     const result = parseTranscriptArgs('--id abc123')
-    expect(result).toEqual({ sessionId: 'abc123', json: false, md: true, html: false, full: false, errorsOnly: false, mask: false })
+    expect(result).toEqual({ sessionId: 'abc123', json: false, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--id requires a value', () => {
@@ -35,24 +35,24 @@ describe('parseTranscriptArgs', () => {
 
   it('--out consumes the rest of the line (spaces allowed)', () => {
     const result = parseTranscriptArgs('--json --out /tmp/my transcripts/a.md')
-    expect(result).toEqual({ outPath: '/tmp/my transcripts/a.md', json: true, md: false, html: false, full: false, errorsOnly: false, mask: false })
+    expect(result).toEqual({ outPath: '/tmp/my transcripts/a.md', json: true, md: false, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--json alone selects json only', () => {
-    expect(parseTranscriptArgs('--json')).toEqual({ json: true, md: false, html: false, full: false, errorsOnly: false, mask: false })
+    expect(parseTranscriptArgs('--json')).toEqual({ json: true, md: false, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--json --md selects both', () => {
-    expect(parseTranscriptArgs('--json --md')).toEqual({ json: true, md: true, html: false, full: false, errorsOnly: false, mask: false })
+    expect(parseTranscriptArgs('--json --md')).toEqual({ json: true, md: true, html: false, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--full flag parses', () => {
-    expect(parseTranscriptArgs('--full')).toEqual({ json: false, md: true, html: false, full: true, errorsOnly: false, mask: false })
+    expect(parseTranscriptArgs('--full')).toEqual({ json: false, md: true, html: false, full: true, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('combined flags and positional path', () => {
     const result = parseTranscriptArgs('out.md --id sid1 --full')
-    expect(result).toEqual({ sessionId: 'sid1', outPath: 'out.md', json: false, md: true, html: false, full: true, errorsOnly: false, mask: false })
+    expect(result).toEqual({ sessionId: 'sid1', outPath: 'out.md', json: false, md: true, html: false, full: true, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('unknown flag errors with usage', () => {
@@ -67,22 +67,22 @@ describe('parseTranscriptArgs', () => {
 describe('parseTranscriptArgs v1.0.0 flags', () => {
   it('--html selects html only', () => {
     const result = parseTranscriptArgs('--html')
-    expect(result).toEqual({ json: false, md: false, html: true, full: false, errorsOnly: false, mask: false })
+    expect(result).toEqual({ json: false, md: false, html: true, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--md --html selects both formats', () => {
     const result = parseTranscriptArgs('--md --html')
-    expect(result).toEqual({ json: false, md: true, html: true, full: false, errorsOnly: false, mask: false })
+    expect(result).toEqual({ json: false, md: true, html: true, full: false, errorsOnly: false, mask: false, maskHash: false, manifest: false })
   })
 
   it('--mask parses', () => {
     const result = parseTranscriptArgs('--mask')
-    expect(result).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: true })
+    expect(result).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: false, mask: true, maskHash: false, manifest: false })
   })
 
   it('--errors-only parses', () => {
     const result = parseTranscriptArgs('--errors-only')
-    expect(result).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: true, mask: false })
+    expect(result).toEqual({ json: false, md: true, html: false, full: false, errorsOnly: true, mask: false, maskHash: false, manifest: false })
   })
 
   it('--last consumes a duration into an epoch bound', () => {
@@ -106,6 +106,32 @@ describe('parseTranscriptArgs v1.0.0 flags', () => {
     expect(typeof result).toBe('object')
     if (typeof result === 'object' && result !== null && !('since' in result && typeof result.since === 'undefined')) {
       expect(result).toMatchObject({ sessionId: 'sid9', html: true, errorsOnly: true })
+    }
+  })
+})
+
+describe('v1.2 flags: --mask-hash and --manifest', () => {
+  it('parses --mask-hash as mask + hash mode', () => {
+    const result = parseTranscriptArgs('--html --mask-hash')
+    expect(typeof result).toBe('object')
+    if (typeof result === 'object') {
+      expect(result).toMatchObject({ mask: true, maskHash: true, manifest: false })
+    }
+  })
+
+  it('parses --manifest independently of masking', () => {
+    const result = parseTranscriptArgs('--manifest')
+    expect(typeof result).toBe('object')
+    if (typeof result === 'object') {
+      expect(result).toMatchObject({ mask: false, manifest: true, md: true })
+    }
+  })
+
+  it('combines --mask-hash with other filters', () => {
+    const result = parseTranscriptArgs('--html --errors-only --mask-hash --manifest')
+    expect(typeof result).toBe('object')
+    if (typeof result === 'object') {
+      expect(result).toMatchObject({ html: true, errorsOnly: true, mask: true, maskHash: true, manifest: true })
     }
   })
 })

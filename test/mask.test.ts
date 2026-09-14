@@ -87,3 +87,42 @@ describe('maskEntries', () => {
     })
   })
 })
+
+describe('hash mode', () => {
+  it('replaces secrets with deterministic #xxxxxxxx markers', () => {
+    const out = maskText('Authorization: Bearer abc123XYZ-_+/==', { mode: 'hash' })
+    expect(out).toMatch(/^Authorization: Bearer #[0-9a-f]{8}$/)
+    expect(out).not.toContain('abc123XYZ')
+  })
+
+  it('yields the same marker for the same secret, different for different secrets', () => {
+    const a = maskText('Bearer abc123XYZ-_+/== ok', { mode: 'hash' })
+    const b = maskText('Bearer abc123XYZ-_+/== again', { mode: 'hash' })
+    const c = maskText('Bearer zzz999yyy-_+/== other', { mode: 'hash' })
+    const marker = (s: string) => s.match(/#[0-9a-f]{8}/)?.[0]
+    expect(marker(a)).toBe(marker(b))
+    expect(marker(a)).not.toBe(marker(c))
+  })
+
+  it('keeps the Bearer prefix verbatim and hashes only the token', () => {
+    const out = maskText('Bearer abc123XYZ-_+/==', { mode: 'hash' })
+    expect(out.startsWith('Bearer #')).toBe(true)
+    // Different whitespace in the retained prefix must not change the digest:
+    // only the token participates in the hash.
+    const spaced = maskText('Bearer    abc123XYZ-_+/==', { mode: 'hash' })
+    const marker = (s: string) => s.match(/#[0-9a-f]{8}/)?.[0]
+    expect(marker(out)).toBe(marker(spaced))
+  })
+
+  it('hashes emails and prefixed keys too', () => {
+    const out = maskText('mail a.b@example.com key ghp_' + 'a'.repeat(30), { mode: 'hash' })
+    expect(out).toMatch(/#[0-9a-f]{8} key #[0-9a-f]{8}/)
+    expect(out).not.toContain('example.com')
+  })
+
+  it('markers stay JSON-safe (no quotes or backslashes)', () => {
+    const out = maskText('"sk-abcdefghijklmnopqrstuvwxyz" \\ path', { mode: 'hash' })
+    expect(out).not.toContain('"sk-')
+    expect(out).toMatch(/#[0-9a-f]{8}/)
+  })
+})

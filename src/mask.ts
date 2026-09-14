@@ -5,10 +5,19 @@
  * renderer (Markdown, HTML, JSON) benefits and JSON stays structurally valid:
  * replacement markers contain no quotes or backslashes.
  *
+ * Two replacement modes: `mask` (fixed placeholders — the default) and `hash`
+ * (deterministic `#xxxxxxxx` digest of the matched secret: the same secret
+ * always yields the same marker, so equality survives redaction without the
+ * content leaking).
+ *
  * @module dsh-session-export/mask
  */
+import { createHash } from 'node:crypto'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import type { TranscriptEntry } from './types.ts'
+
+/** How matched secrets are replaced. */
+export type MaskMode = 'mask' | 'hash'
 
 interface MaskRule {
   readonly name: string
@@ -47,6 +56,8 @@ const BUILTIN_RULES: readonly MaskRule[] = [
 export interface MaskOptions {
   /** Extra user-supplied patterns (source strings) applied after the builtins. */
   readonly extraPatterns?: readonly string[]
+  /** Replacement mode: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
+  readonly mode?: MaskMode
 }
 
 function compileRules(options?: MaskOptions): readonly MaskRule[] {
@@ -68,12 +79,29 @@ function compileRules(options?: MaskOptions): readonly MaskRule[] {
  * @param rules - Compiled rules.
  * @returns Masked text (the same reference when nothing matched).
  */
-function applyRules(text: string, rules: readonly MaskRule[]): string {
+function applyRules(text: string, rules: readonly MaskRule[], mode: MaskMode): string {
   let out = text
   for (const rule of rules) {
-    out = out.replace(rule.pattern, rule.replacement)
+    if (mode === 'hash') {
+      // groups[0] is the full match; groups[1], when the rule defines it, is the
+      // retained literal prefix (e.g. "Bearer ") that must stay verbatim.
+      out = out.replace(rule.pattern, (...groups: string[]) => {
+        const full = groups[0] ?? ''
+        // Only a real capture group counts as a retained prefix; without one,
+        // groups[1] is the match offset (a number) and must be ignored.
+        const prefix = typeof groups[1] === 'string' ? groups[1] : ''
+        return prefix + hashMarker(full.slice(prefix.length))
+      })
+    } else {
+      out = out.replace(rule.pattern, rule.replacement)
+    }
   }
   return out
+}
+
+/** Deterministic short digest marker: same secret → same marker, forever. */
+function hashMarker(secret: string): string {
+  return `#${createHash('sha256').update(secret).digest('hex').slice(0, 8)}`
 }
 
 /**
@@ -83,15 +111,15 @@ function applyRules(text: string, rules: readonly MaskRule[]): string {
  * @param message - Message to mask (mutated in place for efficiency).
  * @param rules - Compiled rules.
  */
-function maskMessage(message: Message, rules: readonly MaskRule[]): void {
+function maskMessage(message: Message, rules: readonly MaskRule[], mode: MaskMode): void {
   for (const block of message.content) {
     if (block.type === 'text' || block.type === 'reasoning') {
-      block.text = applyRules(block.text, rules)
+      block.text = applyRules(block.text, rules, mode)
     } else if (block.type === 'tool-call') {
-      block.arguments = applyRules(block.arguments, rules)
+      block.arguments = applyRules(block.arguments, rules, mode)
     } else if ('content' in block) {
       for (const inner of block.content) {
-        if (inner.type === 'text') inner.text = applyRules(inner.text, rules)
+        if (inner.type === 'text') inner.text = applyRules(inner.text, rules, mode)
       }
     }
   }
@@ -108,11 +136,12 @@ export function maskEntries(
   options?: MaskOptions,
 ): TranscriptEntry[] {
   const rules = compileRules(options)
+  const mode = options?.mode ?? 'mask'
   return entries.map((entry) => ({
     ...entry,
     message: (() => {
       const copy = structuredClone(entry.message)
-      maskMessage(copy, rules)
+      maskMessage(copy, rules, mode)
       return copy
     })(),
   }))
@@ -125,5 +154,5 @@ export function maskEntries(
  * @returns Masked text.
  */
 export function maskText(text: string, options?: MaskOptions): string {
-  return applyRules(text, compileRules(options))
+  return applyRules(text, compileRules(options), options?.mode ?? 'mask')
 }

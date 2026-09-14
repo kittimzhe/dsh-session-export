@@ -108,7 +108,7 @@ interface RenderInput {
 }
 //#endregion
 //#region src/command.d.ts
-declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask]";
+declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]";
 interface TranscriptArgs {
   readonly sessionId?: string;
   readonly outPath?: string;
@@ -120,6 +120,10 @@ interface TranscriptArgs {
   readonly since?: number;
   readonly errorsOnly: boolean;
   readonly mask: boolean;
+  /** `--mask-hash`: redact with deterministic digests instead of placeholders. */
+  readonly maskHash: boolean;
+  /** `--manifest`: write a `.manifest.json` sidecar with per-artifact sha256. */
+  readonly manifest: boolean;
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseTranscriptArgs(rawInput: string): TranscriptArgs | string;
@@ -138,6 +142,10 @@ interface TranscriptConfig {
   readonly resultCharLimit?: number;
   /** Redact likely secrets in rendered output (default false; `--mask` turns it on per run). */
   readonly mask?: boolean;
+  /** Replacement mode when masking: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
+  readonly maskMode?: 'mask' | 'hash';
+  /** Write a `.manifest.json` sidecar with per-artifact sha256 (default false; `--manifest` turns it on per run). */
+  readonly manifest?: boolean;
   /** UI label language for the HTML report (default 'en'). */
   readonly lang?: 'en' | 'zh';
   /** Extra masking regex sources applied alongside the built-in rules. */
@@ -238,9 +246,13 @@ interface StatsCardOptions {
 declare function formatStatsCard(stats: SessionStats, options?: StatsCardOptions): string;
 //#endregion
 //#region src/mask.d.ts
+/** How matched secrets are replaced. */
+type MaskMode = 'mask' | 'hash';
 interface MaskOptions {
   /** Extra user-supplied patterns (source strings) applied after the builtins. */
   readonly extraPatterns?: readonly string[];
+  /** Replacement mode: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
+  readonly mode?: MaskMode;
 }
 /**
  * Mask a read-only entry list into a new array with masked copies.
@@ -256,6 +268,68 @@ declare function maskEntries(entries: readonly TranscriptEntry[], options?: Mask
  * @returns Masked text.
  */
 declare function maskText(text: string, options?: MaskOptions): string;
+//#endregion
+//#region src/manifest.d.ts
+/** One produced artifact as recorded in the manifest. */
+interface ManifestArtifact {
+  /** Path exactly as reported to the user (relative or absolute). */
+  readonly path: string;
+  /** Byte length of the artifact content (UTF-8). */
+  readonly bytes: number;
+  /** Lowercase hex SHA-256 of the artifact content. */
+  readonly sha256: string;
+}
+/** Which view of the session the run exported. */
+interface ManifestScope {
+  /** Number of rendered entries after filters. */
+  readonly entries: number;
+  /** True when `--errors-only` was applied. */
+  readonly errorsOnly: boolean;
+  /** Epoch-ms lower bound from `--last`, when given. */
+  readonly since?: number;
+  /** True when `--full` (log-only appendix) was applied. */
+  readonly full: boolean;
+}
+/** The manifest document (JSON-serializable, stable key order). */
+interface ExportManifest {
+  readonly generator: string;
+  readonly createdAt: number;
+  readonly session: {
+    readonly id: string;
+    readonly createdAt: number;
+  };
+  readonly scope: ManifestScope;
+  readonly mask: {
+    readonly mode: 'off' | MaskMode;
+  };
+  readonly artifacts: readonly ManifestArtifact[];
+}
+/** SHA-256 (lowercase hex) of a string's UTF-8 bytes. */
+declare function sha256Text(content: string): string;
+/** Describe one artifact for the manifest. */
+declare function describeArtifact(path: string, content: string): ManifestArtifact;
+/** Assemble the manifest document. */
+declare function buildManifest(input: {
+  generator: string;
+  createdAt: number;
+  session: {
+    id: string;
+    createdAt: number;
+  };
+  scope: ManifestScope;
+  mask: {
+    mode: 'off' | MaskMode;
+  };
+  artifacts: readonly ManifestArtifact[];
+}): ExportManifest;
+/** Render the manifest as stable, diff-friendly JSON (2-space, trailing newline). */
+declare function renderManifest(manifest: ExportManifest): string;
+/** Recompute and compare digests for artifacts held as strings. */
+declare function verifyManifest(manifest: ExportManifest, artifacts: ReadonlyMap<string, string>): {
+  ok: boolean;
+  checked: number;
+  mismatches: string[];
+};
 //#endregion
 //#region src/statsCommand.d.ts
 declare const STATS_USAGE = "Usage: /stats [--id <sessionId>]";
@@ -302,4 +376,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig;
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type MarkdownRenderOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderMarkdown, renderTimelineMermaid, renderToolDiff, sparkline };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type ExportManifest, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };

@@ -2,7 +2,7 @@
 
 [English](https://github.com/kittimzhe/dsh-session-export/blob/main/README.md) | 中文
 
-[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml/badge.svg)](https://github.com/kittimzhe/dsh-session-export/actions/workflows/test.yml) [![npm version](https://img.shields.io/npm/v/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![npm downloads](https://img.shields.io/npm/dm/dsh-session-export)](https://www.npmjs.com/package/dsh-session-export) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kittimzhe/dsh-session-export/blob/main/LICENSE)
 
 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供**确定性的会话证据报告**：`/transcript` 把会话写成**单文件 HTML 报告**或 Markdown/JSON 转录，`/stats` 在终端打印统计卡，`/archive` 把原始会话日志写成逐会话 ZIP——全部落到本机路径，且支持任意持久化后端（JSONL 或 SQLite）。
 
@@ -33,8 +33,6 @@
 
 ## 功能优化路线图
 
-- **P0：证据清单** —— 可选输出 `manifest.json` + `sha256`，对每个导出物做可校验签名。
-- **P0：更严格脱敏策略** —— 引入 `maskMode`（`off`/`mask`/`hash`）与字段级策略。
 - **P1：报告对比模式** —— 对两次导出生成结构化差异报告。
 - **P1：团队策略包** —— 统一脱敏、保留期、导出契约的配置预设。
 - **P2：交接打包** —— 一条命令打包报告 + 原始归档 + 清单，直连评审流程。
@@ -57,6 +55,8 @@
 | `/transcript --last 30m` | **部分导出**：最近 30 分钟的条目（`7d`/`12h`/`30m`/`90s`） |
 | `/transcript --errors-only` | **调试视图**：报错的工具结果 ± 两条上下文 |
 | `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱等 |
+| `/transcript --mask-hash` | **确定性脱敏**：密文变 `#xxxxxxxx` 摘要——同密钥同标记，相等性在脱敏后仍可判 |
+| `/transcript --manifest` | **证据清单**：为本次每个导出物写 `.manifest.json` 边车（字节数 + SHA-256） |
 | `/transcript --full` | 附上 log-only 事件附录 + Mermaid 轮次时间轴 |
 | `/stats` | **终端统计卡**：消息、轮次、时长、工具调用（含失败）、token、成本、工具排行、sparkline——不写文件 |
 | `/archive` | 归档当前会话（含子代理后代）→ 逐会话 ZIP |
@@ -136,6 +136,8 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
     resultCharLimit: 2048              # 工具结果渲染上限
     lang: zh                           # HTML 报告标签语言：默认 'en'，可 'zh'
     mask: true                         # 默认脱敏（--mask 按次开启）
+    maskMode: hash                     # 替换模式：'mask'（占位符，默认）或 'hash'（确定性摘要）
+    manifest: true                     # 默认写 .manifest.json 边车（--manifest 按次开启）
     maskPatterns: ['OPS-\d+']          # 额外脱敏正则
     pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }
     archiveDir: /absolute/output/dir   # 默认：会话 cwd + .dsh-archives/
@@ -153,7 +155,7 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 ## 已知限制
 
 - 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
-- 报告字节不可复现（内嵌生成时间戳）；规划中的 evidence manifest 提供的是完整性校验，而非可复现性。
+- 报告字节不可复现（内嵌生成时间戳）；`--manifest` 提供的是完整性校验（逐导出物 SHA-256），而非可复现性。
 - Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
 - 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
 - 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。

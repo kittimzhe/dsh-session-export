@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — 2026-09-13
+
+Evidence integrity release: the "deterministic evidence" positioning becomes verifiable.
+
+- **`--manifest`** — write a `.manifest.json` sidecar for a `/transcript` run: generator, session identity, applied scope (entries, `--errors-only`, `--last`, `--full`), mask mode, and for every artifact the path, UTF-8 byte size, and SHA-256. `verifyManifest()` is exported so downstream tooling can recompute digests and prove the files are exactly what the generator wrote. Config `manifest: true` turns it on by default.
+- **`--mask-hash`** — deterministic redaction: matched secrets become `#xxxxxxxx` (first 8 hex of SHA-256). The same secret always yields the same marker, so equality survives redaction without content leaking. `Bearer` prefixes stay verbatim; only the token digests. Config `maskMode: 'mask' | 'hash'` sets the default mode for `--mask`.
+- Success message now reports redaction mode and the manifest path.
+- README: shipped the P0 roadmap items; absolute LICENSE links (npm-page link fix).
+
 ## 1.1.0 — 2026-09-13
 
 Report navigation and ergonomics release.
