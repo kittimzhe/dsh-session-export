@@ -64,6 +64,10 @@ Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin rende
 
 Like every `ctx.commands` command, all three run on the human-command plane: results never enter model history and cost zero tokens.
 
+## Model-facing tool (v1.3)
+
+Set `exposeTool: true` to register `transcript_export` — the same export kernel as a typed tool the model can call. The intended bridge: a `dsh-session-recall` hit returns a `sessionId`; the model hands it to `transcript_export` and the user gets a full evidence report on disk. One format per call (`html` default, `md` / `json`), optional `mask` / `manifest` / `last`; files always land in the standard `dsh-transcripts` directory (or `defaultDir`), with timestamped names that never overwrite. The tool is opt-in because it puts a host-file write in the model's hands.
+
 ## The HTML report
 
 ![HTML report (light theme)](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-light.png)
@@ -138,6 +142,7 @@ Plugin row config (all optional):
     maskMode: hash                     # replacement mode: 'mask' (placeholders, default) or 'hash' (deterministic digests)
     maskPatterns: ['OPS-\d+']          # extra masking regexes
     manifest: true                     # write a .manifest.json sidecar by default (--manifest per run)
+    exposeTool: true                   # register the model-facing transcript_export tool (default false)
     pricing: { inputPerMillion: 0.27, outputPerMillion: 1.10, currency: '$' }
     archiveDir: /absolute/output/dir   # default: session cwd + .dsh-archives/
     includeDescendants: true           # /archive --id default
@@ -160,6 +165,14 @@ Plugin row config (all optional):
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.
 - Markdown escapes nothing inside fenced blocks; a diff whose own lines start with `+`/`-` renders as additional diff lines (acceptable for a diff view).
 - `/archive` is export-only: there is no restore/import because DSH exposes no write-side session seam, so the ZIP is a backup, not a round-trip.
+
+## Development
+
+Local type-checking of the tool module needs `@deepseek-ai/dsh-tools` (`^0.1.1-rc.2`, an optional peer) resolvable. Its transitive `@deepseek-ai/dsh-agent@0.1.1` line is currently unpublished on npm, so a fresh install cannot pull it — link the package from a checkout that already has it (e.g. a sibling `dsh-session-recall`):
+
+```bash
+ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
+```
 
 ## License
 

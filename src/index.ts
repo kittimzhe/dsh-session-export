@@ -13,7 +13,9 @@
  * than the model-visible surface, whose compaction replacements would erase
  * conversation the user already read.
  */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Disposable } from '@deepseek-ai/cordis'
+import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import { createExportTool } from './exportTool.ts'
 import { executeTranscript, type TranscriptConfig } from './command.ts'
 import { executeArchive, type ArchiveConfig } from './archive.ts'
 import { executeStats } from './statsCommand.ts'
@@ -38,6 +40,8 @@ export { sha256Text, describeArtifact, buildManifest, renderManifest, verifyMani
 export type { ExportManifest, ManifestArtifact, ManifestScope } from './manifest.ts'
 export type { StatsCardOptions } from './stats.ts'
 export { parseStatsArgs, STATS_USAGE } from './statsCommand.ts'
+export { createExportTool, EXPORT_TOOL_DESCRIPTION } from './exportTool.ts'
+export type { ExportEngine, ExportToolResult } from './exportTool.ts'
 export { renderEditorDiff, renderToolDiff, parseToolArguments } from './render/diff.ts'
 export type {
   LineageInfo,
@@ -79,4 +83,18 @@ export function apply(ctx: Context, config?: SessionExportConfig): void {
     },
     'session-export lifecycle',
   )
+
+  // Model-facing evidence handoff (recall hit → full report). Opt-in: the
+  // tools registry is not part of this plugin's inject list, so access it
+  // defensively and skip silently when the composition has none.
+  if (config?.exposeTool === true) {
+    ctx.effect(
+      function* () {
+        const tools = (ctx as { tools?: { register(tool: ToolDefinition): Disposable } }).tools
+        if (tools == null || typeof tools.register !== 'function') return
+        yield tools.register(createExportTool(config, ctx.sessionQuery))
+      },
+      'session-export tool lifecycle',
+    )
+  }
 }

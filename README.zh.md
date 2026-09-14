@@ -162,6 +162,14 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 - Markdown 代码块内部不做转义；diff 内容自带 `+`/`-` 行首时会渲染为附加 diff 行（diff 视图可接受）。
 - `/archive` 只出不进：DSH 没有写侧会话接缝，ZIP 是备份不是往返。
 
+## 开发
+
+工具模块的本地类型检查需要 `@deepseek-ai/dsh-tools`（`^0.1.1-rc.2`，可选 peer）可解析。其传递依赖 `@deepseek-ai/dsh-agent@0.1.1` 线当前已从 npm 下架，全新安装拉不下来——从已有该包的检出链接一份（如同级的 `dsh-session-recall`）：
+
+```bash
+ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
+```
+
 ## 许可
 
 MIT

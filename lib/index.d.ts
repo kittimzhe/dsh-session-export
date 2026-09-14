@@ -1,4 +1,5 @@
-import { SessionEvent, SessionHeader } from "@deepseek-ai/dsh-session";
+import { ToolDefinition } from "@deepseek-ai/dsh-tools";
+import { SessionEvent, SessionHeader, SessionId } from "@deepseek-ai/dsh-session";
 import { Context } from "@deepseek-ai/cordis";
 import "@deepseek-ai/dsh-commands";
 import { Message, TokenUsage } from "@deepseek-ai/dsh-llm";
@@ -107,6 +108,92 @@ interface RenderInput {
   readonly generatedAt: number;
 }
 //#endregion
+//#region src/mask.d.ts
+/** How matched secrets are replaced. */
+type MaskMode = 'mask' | 'hash';
+interface MaskOptions {
+  /** Extra user-supplied patterns (source strings) applied after the builtins. */
+  readonly extraPatterns?: readonly string[];
+  /** Replacement mode: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
+  readonly mode?: MaskMode;
+}
+/**
+ * Mask a read-only entry list into a new array with masked copies.
+ * @param entries - Original entries (never mutated).
+ * @param options - Mask options.
+ * @returns New entry array with masked message content; entry/ordering metadata unchanged.
+ */
+declare function maskEntries(entries: readonly TranscriptEntry[], options?: MaskOptions): TranscriptEntry[];
+/**
+ * Mask a bare string (exported for tests and direct use).
+ * @param text - Raw text.
+ * @param options - Mask options.
+ * @returns Masked text.
+ */
+declare function maskText(text: string, options?: MaskOptions): string;
+//#endregion
+//#region src/manifest.d.ts
+/** One produced artifact as recorded in the manifest. */
+interface ManifestArtifact {
+  /** Path exactly as reported to the user (relative or absolute). */
+  readonly path: string;
+  /** Byte length of the artifact content (UTF-8). */
+  readonly bytes: number;
+  /** Lowercase hex SHA-256 of the artifact content. */
+  readonly sha256: string;
+}
+/** Which view of the session the run exported. */
+interface ManifestScope {
+  /** Number of rendered entries after filters. */
+  readonly entries: number;
+  /** True when `--errors-only` was applied. */
+  readonly errorsOnly: boolean;
+  /** Epoch-ms lower bound from `--last`, when given. */
+  readonly since?: number;
+  /** True when `--full` (log-only appendix) was applied. */
+  readonly full: boolean;
+}
+/** The manifest document (JSON-serializable, stable key order). */
+interface ExportManifest {
+  readonly generator: string;
+  readonly createdAt: number;
+  readonly session: {
+    readonly id: string;
+    readonly createdAt: number;
+  };
+  readonly scope: ManifestScope;
+  readonly mask: {
+    readonly mode: 'off' | MaskMode;
+  };
+  readonly artifacts: readonly ManifestArtifact[];
+}
+/** SHA-256 (lowercase hex) of a string's UTF-8 bytes. */
+declare function sha256Text(content: string): string;
+/** Describe one artifact for the manifest. */
+declare function describeArtifact(path: string, content: string): ManifestArtifact;
+/** Assemble the manifest document. */
+declare function buildManifest(input: {
+  generator: string;
+  createdAt: number;
+  session: {
+    id: string;
+    createdAt: number;
+  };
+  scope: ManifestScope;
+  mask: {
+    mode: 'off' | MaskMode;
+  };
+  artifacts: readonly ManifestArtifact[];
+}): ExportManifest;
+/** Render the manifest as stable, diff-friendly JSON (2-space, trailing newline). */
+declare function renderManifest(manifest: ExportManifest): string;
+/** Recompute and compare digests for artifacts held as strings. */
+declare function verifyManifest(manifest: ExportManifest, artifacts: ReadonlyMap<string, string>): {
+  ok: boolean;
+  checked: number;
+  mismatches: string[];
+};
+//#endregion
 //#region src/command.d.ts
 declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]";
 interface TranscriptArgs {
@@ -133,6 +220,13 @@ declare function buildEntries(events: readonly SessionEvent[]): TranscriptEntry[
 /** Summarize log-only events for the --full appendix. */
 declare function buildLogOnly(events: readonly SessionEvent[]): LogOnlyLine[];
 declare function buildTotals(entries: readonly TranscriptEntry[]): TranscriptTotals;
+/** The slice of a sessionQuery trace both the command and the tool consume. */
+interface SessionTraceLike {
+  ancestors: Array<{
+    header: SessionHeader;
+  }>;
+  descendants: unknown[];
+}
 interface TranscriptConfig {
   /** Directory used when no explicit path is given. */
   readonly defaultDir?: string;
@@ -146,6 +240,8 @@ interface TranscriptConfig {
   readonly maskMode?: 'mask' | 'hash';
   /** Write a `.manifest.json` sidecar with per-artifact sha256 (default false; `--manifest` turns it on per run). */
   readonly manifest?: boolean;
+  /** Register the model-facing `transcript_export` tool (default false — the tool appears only when the deployment opts in). */
+  readonly exposeTool?: boolean;
   /** UI label language for the HTML report (default 'en'). */
   readonly lang?: 'en' | 'zh';
   /** Extra masking regex sources applied alongside the built-in rules. */
@@ -245,92 +341,6 @@ interface StatsCardOptions {
  */
 declare function formatStatsCard(stats: SessionStats, options?: StatsCardOptions): string;
 //#endregion
-//#region src/mask.d.ts
-/** How matched secrets are replaced. */
-type MaskMode = 'mask' | 'hash';
-interface MaskOptions {
-  /** Extra user-supplied patterns (source strings) applied after the builtins. */
-  readonly extraPatterns?: readonly string[];
-  /** Replacement mode: fixed placeholders (`mask`, default) or deterministic digests (`hash`). */
-  readonly mode?: MaskMode;
-}
-/**
- * Mask a read-only entry list into a new array with masked copies.
- * @param entries - Original entries (never mutated).
- * @param options - Mask options.
- * @returns New entry array with masked message content; entry/ordering metadata unchanged.
- */
-declare function maskEntries(entries: readonly TranscriptEntry[], options?: MaskOptions): TranscriptEntry[];
-/**
- * Mask a bare string (exported for tests and direct use).
- * @param text - Raw text.
- * @param options - Mask options.
- * @returns Masked text.
- */
-declare function maskText(text: string, options?: MaskOptions): string;
-//#endregion
-//#region src/manifest.d.ts
-/** One produced artifact as recorded in the manifest. */
-interface ManifestArtifact {
-  /** Path exactly as reported to the user (relative or absolute). */
-  readonly path: string;
-  /** Byte length of the artifact content (UTF-8). */
-  readonly bytes: number;
-  /** Lowercase hex SHA-256 of the artifact content. */
-  readonly sha256: string;
-}
-/** Which view of the session the run exported. */
-interface ManifestScope {
-  /** Number of rendered entries after filters. */
-  readonly entries: number;
-  /** True when `--errors-only` was applied. */
-  readonly errorsOnly: boolean;
-  /** Epoch-ms lower bound from `--last`, when given. */
-  readonly since?: number;
-  /** True when `--full` (log-only appendix) was applied. */
-  readonly full: boolean;
-}
-/** The manifest document (JSON-serializable, stable key order). */
-interface ExportManifest {
-  readonly generator: string;
-  readonly createdAt: number;
-  readonly session: {
-    readonly id: string;
-    readonly createdAt: number;
-  };
-  readonly scope: ManifestScope;
-  readonly mask: {
-    readonly mode: 'off' | MaskMode;
-  };
-  readonly artifacts: readonly ManifestArtifact[];
-}
-/** SHA-256 (lowercase hex) of a string's UTF-8 bytes. */
-declare function sha256Text(content: string): string;
-/** Describe one artifact for the manifest. */
-declare function describeArtifact(path: string, content: string): ManifestArtifact;
-/** Assemble the manifest document. */
-declare function buildManifest(input: {
-  generator: string;
-  createdAt: number;
-  session: {
-    id: string;
-    createdAt: number;
-  };
-  scope: ManifestScope;
-  mask: {
-    mode: 'off' | MaskMode;
-  };
-  artifacts: readonly ManifestArtifact[];
-}): ExportManifest;
-/** Render the manifest as stable, diff-friendly JSON (2-space, trailing newline). */
-declare function renderManifest(manifest: ExportManifest): string;
-/** Recompute and compare digests for artifacts held as strings. */
-declare function verifyManifest(manifest: ExportManifest, artifacts: ReadonlyMap<string, string>): {
-  ok: boolean;
-  checked: number;
-  mismatches: string[];
-};
-//#endregion
 //#region src/statsCommand.d.ts
 declare const STATS_USAGE = "Usage: /stats [--id <sessionId>]";
 interface StatsArgs {
@@ -338,6 +348,34 @@ interface StatsArgs {
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseStatsArgs(rawInput: string): StatsArgs | string;
+//#endregion
+//#region src/exportTool.d.ts
+/** The ctx.sessionQuery surface this tool consumes (structural, for testability). */
+interface ExportEngine {
+  readSession(sessionId: SessionId): Promise<{
+    session: SessionHeader;
+    events: SessionEvent[];
+  }>;
+  traceSession(sessionId: SessionId): Promise<SessionTraceLike>;
+}
+declare const EXPORT_TOOL_DESCRIPTION: string;
+/** The tool's canonical result, validated against the output schema. */
+interface ExportToolResult {
+  sessionId: string;
+  format: 'md' | 'html' | 'json';
+  written: string[];
+  manifest: string | null;
+  messages: number;
+  toolCalls: number;
+  tokens: number;
+  maskMode: 'off' | 'mask' | 'hash';
+  error: string | null;
+}
+/**
+ * Build the `transcript_export` ToolDefinition around a sessionQuery engine.
+ * Pure construction — no registration happens here.
+ */
+declare function createExportTool(config?: TranscriptConfig, engine?: ExportEngine): ToolDefinition;
 //#endregion
 //#region src/render/diff.d.ts
 /**
@@ -376,4 +414,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig;
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, type ExportManifest, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, type CostEstimate, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTimelineMermaid, renderToolDiff, sha256Text, sparkline, verifyManifest };

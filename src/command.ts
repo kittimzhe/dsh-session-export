@@ -20,6 +20,7 @@ import { renderHtml } from './render/html.ts'
 import { computeStats } from './stats.ts'
 import { maskEntries } from './mask.ts'
 import { buildManifest, describeArtifact, renderManifest } from './manifest.ts'
+import type { ExportManifest } from './manifest.ts'
 import type { PricingConfig } from './types.ts'
 import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
@@ -231,6 +232,47 @@ function toLineageNode(node: { session: { header: SessionHeader }; descendants: 
   }
 }
 
+/** The slice of a sessionQuery trace both the command and the tool consume. */
+export interface SessionTraceLike {
+  ancestors: Array<{ header: SessionHeader }>
+  descendants: unknown[]
+}
+
+/** Fold a trace into render lineage (shared by /transcript and the export tool). */
+export function toLineageInfo(trace: SessionTraceLike): LineageInfo {
+  return {
+    ancestors: trace.ancestors.map((record) => ({
+      id: record.header.id,
+      createdAt: record.header.createdAt,
+      ...(record.header.origin !== undefined ? { origin: record.header.origin } : {}),
+    })),
+    descendants: (trace.descendants as Array<{ session: { header: SessionHeader }; descendants: unknown[] }>).map(toLineageNode),
+  }
+}
+
+/** Standard artifact base path (no extension): <dir>/dsh-transcripts/transcript-<id8>-<timestamp>. */
+export function transcriptBasePath(baseDir: string, sessionIdRaw: string): string {
+  return `${baseDir}/dsh-transcripts/transcript-${id8(sessionIdRaw)}-${timestampSlug(Date.now())}`
+}
+
+/** Assemble the evidence manifest for one run's artifacts (shared by command and tool). */
+export function buildSessionManifest(input: {
+  createdAt: number
+  session: SessionHeader
+  scope: { entries: number; errorsOnly: boolean; since?: number; full: boolean }
+  mask: { mode: 'off' | 'mask' | 'hash' }
+  outputs: ReadonlyArray<{ path: string; content: string }>
+}): ExportManifest {
+  return buildManifest({
+    generator: GENERATOR,
+    createdAt: input.createdAt,
+    session: { id: input.session.id, createdAt: input.session.createdAt },
+    scope: input.scope,
+    mask: input.mask,
+    artifacts: input.outputs.map((output) => describeArtifact(output.path, output.content)),
+  })
+}
+
 export interface TranscriptConfig {
   /** Directory used when no explicit path is given. */
   readonly defaultDir?: string
@@ -244,6 +286,8 @@ export interface TranscriptConfig {
   readonly maskMode?: 'mask' | 'hash'
   /** Write a `.manifest.json` sidecar with per-artifact sha256 (default false; `--manifest` turns it on per run). */
   readonly manifest?: boolean
+  /** Register the model-facing `transcript_export` tool (default false — the tool appears only when the deployment opts in). */
+  readonly exposeTool?: boolean
   /** UI label language for the HTML report (default 'en'). */
   readonly lang?: 'en' | 'zh'
   /** Extra masking regex sources applied alongside the built-in rules. */
@@ -252,7 +296,8 @@ export interface TranscriptConfig {
   readonly pricing?: PricingConfig
 }
 
-const GENERATOR = 'dsh-session-export v1.2.0'
+/** Generator identity stamped into every artifact and manifest. */
+export const GENERATOR = 'dsh-session-export v1.3.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(
@@ -280,14 +325,7 @@ export async function executeTranscript(
   let lineage: LineageInfo | undefined
   try {
     const trace = await ctx.sessionQuery.traceSession(sessionId)
-    lineage = {
-      ancestors: trace.ancestors.map((record) => ({
-        id: record.header.id,
-        createdAt: record.header.createdAt,
-        ...(record.header.origin !== undefined ? { origin: record.header.origin } : {}),
-      })),
-      descendants: trace.descendants.map(toLineageNode),
-    }
+    lineage = toLineageInfo(trace)
   } catch {
     lineage = undefined
   }
@@ -337,8 +375,7 @@ export async function executeTranscript(
 
   const baseDir = config?.defaultDir ?? log.session.cwd ?? process.cwd()
   const outputs: Array<{ path: string; content: string }> = []
-  const slug = `transcript-${id8(String(sessionIdRaw))}-${timestampSlug(Date.now())}`
-  const defaultPath = args.outPath !== undefined ? undefined : `${baseDir}/dsh-transcripts/${slug}`
+  const defaultPath = args.outPath !== undefined ? undefined : transcriptBasePath(baseDir, String(sessionIdRaw))
 
   if (args.md) {
     const path = defaultPath !== undefined ? `${defaultPath}.md` : requireExtension(args.outPath, '.md')
@@ -377,10 +414,9 @@ export async function executeTranscript(
       await atomicWriteFile(output.path, output.content)
     }
     if (manifestPath !== undefined) {
-      const manifest = buildManifest({
-        generator: GENERATOR,
+      const manifest = buildSessionManifest({
         createdAt: input.generatedAt,
-        session: { id: log.session.id, createdAt: log.session.createdAt },
+        session: log.session,
         scope: {
           entries: entries.length,
           errorsOnly: args.errorsOnly,
@@ -388,7 +424,7 @@ export async function executeTranscript(
           full: args.full,
         },
         mask: { mode: maskMode },
-        artifacts: outputs.map((output) => describeArtifact(output.path, output.content)),
+        outputs,
       })
       await atomicWriteFile(manifestPath, renderManifest(manifest))
     }
