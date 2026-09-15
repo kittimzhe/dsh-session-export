@@ -13,6 +13,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import { SessionId, isAppendSurfaceEvent, deriveEventMessage } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import type { Message } from '@deepseek-ai/dsh-llm'
+import { applyRetention, describeRetention } from './retention.ts'
+import { applyContract, checkFormats, checkPinnedDir, describeContract, type Contract, type ExportFormat } from './contract.ts'
 import type { LogOnlyLine, LineageInfo, LineageNode, RenderInput, TranscriptEntry, TranscriptTotals } from './types.ts'
 import { renderMarkdown } from './render/markdown.ts'
 import { renderJson } from './render/json.ts'
@@ -294,10 +296,16 @@ export interface TranscriptConfig {
   readonly maskPatterns?: readonly string[]
   /** Token price table; cost rows appear only when both rates are set. */
   readonly pricing?: PricingConfig
+  /** Delete generated artifacts older than this many days after each export. */
+  readonly retentionDays?: number
+  /** Keep at most this many artifacts per output directory. */
+  readonly retentionMaxFiles?: number
+  /** Team-pinned output constraints; the model cannot weaken these per run. */
+  readonly contract?: Contract
 }
 
 /** Generator identity stamped into every artifact and manifest. */
-export const GENERATOR = 'dsh-session-export v1.6.0'
+export const GENERATOR = 'dsh-session-export v1.7.0'
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(
@@ -307,7 +315,7 @@ export async function executeTranscript(
 ): Promise<CommandResult> {
   const parsed = parseTranscriptArgs(invocation.rawInput)
   if (typeof parsed === 'string') return { kind: 'error', text: parsed }
-  const args = parsed
+  const args = applyContract(config?.contract ?? {}, parsed)
 
   const sessionIdRaw = args.sessionId ?? invocation.agent.session.id
   const sessionId = SessionId(String(sessionIdRaw))
@@ -409,6 +417,21 @@ export async function executeTranscript(
         : `${(args.outPath ?? 'transcript').replace(/\.(md|html|json)$/i, '')}.manifest.json`
   }
 
+  const requestedFormats: ExportFormat[] = []
+  if (args.json) requestedFormats.push('json')
+  if (args.html) requestedFormats.push('html')
+  if (!args.json && !args.html) requestedFormats.push('markdown')
+  const formatProblem = checkFormats(config?.contract ?? {}, requestedFormats)
+  if (formatProblem !== undefined) {
+    return { kind: 'error', text: `${formatProblem}\n${describeContract(config?.contract ?? {})}` }
+  }
+  for (const output of outputs) {
+    const dirProblem = checkPinnedDir(config?.contract ?? {}, output.path)
+    if (dirProblem !== undefined) {
+      return { kind: 'error', text: `${dirProblem}\n${describeContract(config?.contract ?? {})}` }
+    }
+  }
+
   try {
     for (const output of outputs) {
       await atomicWriteFile(output.path, output.content)
@@ -438,9 +461,21 @@ export async function executeTranscript(
   const written = outputs.map((output) => output.path).join(', ')
   const manifestNote = manifestPath !== undefined ? ` (+ ${manifestPath})` : ''
   const maskNote = maskMode !== 'off' ? `, ${maskMode}-redacted` : ''
+  let retentionNote = ''
+  if (config?.retentionDays !== undefined || config?.retentionMaxFiles !== undefined) {
+    const dir = outputs[0] !== undefined ? outputs[0].path.split('/').slice(0, -1).join('/') : undefined
+    if (dir !== undefined && dir.length > 0) {
+      const sweep = await applyRetention(dir, {
+        retentionDays: config?.retentionDays,
+        retentionMaxFiles: config?.retentionMaxFiles,
+      })
+      const line = describeRetention(sweep)
+      retentionNote = line !== '' ? `\n${line}` : ''
+    }
+  }
   return {
     kind: 'success',
-    text: `Exported ${totals.messages} messages (${totals.toolCalls} tool calls, ${totals.inputTokens + totals.outputTokens} tokens${maskNote}) → ${written}${manifestNote}`,
+    text: `Exported ${totals.messages} messages (${totals.toolCalls} tool calls, ${totals.inputTokens + totals.outputTokens} tokens${maskNote}) → ${written}${manifestNote}${retentionNote}`,
   }
 }
 

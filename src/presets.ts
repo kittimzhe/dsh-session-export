@@ -9,6 +9,7 @@
  * extending {@link PresetName}.
  */
 import type { TranscriptConfig } from './command.ts'
+import type { Contract } from './contract.ts'
 
 /** Built-in preset names. */
 export type PresetName = 'baseline' | 'compliance' | 'full'
@@ -17,17 +18,27 @@ export type PresetName = 'baseline' | 'compliance' | 'full'
 export const PRESETS: Readonly<Record<PresetName, Partial<TranscriptConfig>>> = {
   /** No special defaults; everything is opt-in. */
   baseline: {},
-  /** Audit / evidence: mask secrets, write manifest sidecars. Masks are plain redaction (not hash). */
+  /** Audit / evidence: mask secrets, write manifest sidecars, prune after 90 days; masking is contract-pinned. */
   compliance: {
     mask: true,
     maskMode: 'mask',
     manifest: true,
+    retentionDays: 90,
+    contract: {
+      requireMask: true,
+      requireMaskMode: 'mask',
+    } satisfies Contract,
   },
-  /** Maximal evidence: mask with deterministic hashes, manifest on by default. */
+  /** Maximal evidence: hash-mask, manifest, prune after 1 year; hash masking is contract-pinned. */
   full: {
     mask: true,
     maskMode: 'hash',
     manifest: true,
+    retentionDays: 365,
+    contract: {
+      requireMask: true,
+      requireMaskMode: 'hash',
+    } satisfies Contract,
   },
 }
 

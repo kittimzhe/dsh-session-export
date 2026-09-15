@@ -3,6 +3,47 @@ import { SessionEvent, SessionHeader, SessionId } from "@deepseek-ai/dsh-session
 import { Context } from "@deepseek-ai/cordis";
 import { CommandInvocation, CommandResult } from "@deepseek-ai/dsh-commands";
 import { Message, TokenUsage } from "@deepseek-ai/dsh-llm";
+//#region src/contract.d.ts
+/** Formats the transcript pipeline can render. */
+type ExportFormat = 'markdown' | 'json' | 'html';
+/** Team-pinned output constraints. All fields optional; unset = not pinned. */
+interface Contract {
+  /** Masking must end up enabled; `--no-mask` style overrides are rejected. */
+  readonly requireMask?: boolean;
+  /** Masking must use this mode; conflicting per-run modes are rejected. */
+  readonly requireMaskMode?: 'mask' | 'hash';
+  /** Only these output formats may be produced. */
+  readonly allowedFormats?: readonly ExportFormat[];
+  /** Artifacts may only be written under this directory. */
+  readonly pinnedDir?: string;
+}
+/** Transcript-level knobs the contract can override at resolution time. */
+interface MaskableConfig {
+  readonly mask?: boolean;
+  readonly maskMode?: 'mask' | 'hash';
+}
+/**
+ * Overlay the contract on top of user config / CLI arguments.
+ *
+ * Contract fields win wherever set; everything else passes through.
+ * Returns a new object; never mutates inputs.
+ */
+declare function applyContract<C extends MaskableConfig>(contract: Contract, requested: C): C;
+/**
+ * Check requested output formats against the contract.
+ * @returns An error string when a requested format is not allowed.
+ */
+declare function checkFormats(contract: Contract, requested: readonly ExportFormat[]): string | undefined;
+/**
+ * Check a requested output path against the pinned directory.
+ * @returns An error string when the path escapes the pinned directory.
+ */
+declare function checkPinnedDir(contract: Contract, outPath: string | undefined): string | undefined;
+/** Human-readable contract summary for error tails. */
+declare function describeContract(contract: Contract): string;
+/** Parse a format token into ExportFormat; undefined when unknown. */
+declare function parseExportFormat(token: string): ExportFormat | undefined;
+//#endregion
 //#region src/types.d.ts
 /** One surface event projected to the message the user actually saw. */
 interface TranscriptEntry {
@@ -248,6 +289,12 @@ interface TranscriptConfig {
   readonly maskPatterns?: readonly string[];
   /** Token price table; cost rows appear only when both rates are set. */
   readonly pricing?: PricingConfig;
+  /** Delete generated artifacts older than this many days after each export. */
+  readonly retentionDays?: number;
+  /** Keep at most this many artifacts per output directory. */
+  readonly retentionMaxFiles?: number;
+  /** Team-pinned output constraints; the model cannot weaken these per run. */
+  readonly contract?: Contract;
 }
 //#endregion
 //#region src/archive.d.ts
@@ -439,12 +486,52 @@ interface StatsCardOptions {
 declare function formatStatsCard(stats: SessionStats, options?: StatsCardOptions): string;
 //#endregion
 //#region src/statsCommand.d.ts
-declare const STATS_USAGE = "Usage: /stats [--id <sessionId>]";
+declare const STATS_USAGE = "Usage: /stats [--id <sessionId>] [--json] [--out <path>]";
+/** StatsArgs: --id selects the session; --json emits machine-readable output; --out writes to a file. */
 interface StatsArgs {
   readonly sessionId?: string;
+  readonly json?: boolean;
+  readonly outPath?: string;
 }
 /** Parse raw command input; returns args or a usage-error string. */
 declare function parseStatsArgs(rawInput: string): StatsArgs | string;
+//#endregion
+//#region src/retention.d.ts
+/** One pruned file, as reported in the summary line. */
+interface PrunedFile {
+  readonly path: string;
+  readonly mtimeMs: number;
+}
+/** Result of one retention sweep. */
+interface RetentionResult {
+  /** Files deleted this sweep (already unlinked; failures skipped). */
+  readonly deleted: readonly PrunedFile[];
+  /** Number of files considered (matched artifact pattern in dir). */
+  readonly considered: number;
+}
+/** Retention knobs; both optional, at least one must be set to prune anything. */
+interface RetentionOptions {
+  /** Delete artifacts older than this many days. */
+  readonly retentionDays?: number;
+  /** Keep at most this many artifacts (oldest deleted first). */
+  readonly retentionMaxFiles?: number;
+}
+/** Validate retention options; returns an error string when misconfigured. */
+declare function validateRetention(options: RetentionOptions): string | undefined;
+/**
+ * Prune generated artifacts in `dir` according to `options`.
+ *
+ * Never throws: unreadable directories, unstat-able files, and unlink
+ * failures are skipped silently — retention must not break an export.
+ * The directory is created when missing so callers need not pre-create.
+ *
+ * @param dir - Directory to sweep (e.g. `<cwd>/dsh-transcripts`).
+ * @param options - Days / max-files caps; unset caps are not enforced.
+ * @returns The deletion summary for the command's tail line.
+ */
+declare function applyRetention(dir: string, options: RetentionOptions): Promise<RetentionResult>;
+/** Render the one-line retention summary appended after a successful export. */
+declare function describeRetention(result: RetentionResult): string;
 //#endregion
 //#region src/exportTool.d.ts
 /** The ctx.sessionQuery surface this tool consumes (structural, for testability). */
@@ -514,4 +601,4 @@ type SessionExportConfig = TranscriptConfig & ArchiveConfig & {
 /** Plugin entry: mount the /transcript and /archive commands. */
 declare function apply(ctx: Context, config?: SessionExportConfig): void;
 //#endregion
-export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type CostEstimate, DIFF_USAGE, type DiffArgs, type DiffResult, type DiffTotals, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, PRESETS, type PresetName, type PricingConfig, type RenderInput, type ReportLang, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, diffSessions, entryFingerprint, executeBundle, executeDiff, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseDiffArgs, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTerminalDiff, renderTimelineMermaid, renderToolDiff, resolvePreset, sha256Text, sparkline, verifyManifest };
+export { ARCHIVE_USAGE, type ArchiveArgs, type ArchiveConfig, BUNDLE_USAGE, type BundleArgs, type BundleConfig, type Contract, type CostEstimate, DIFF_USAGE, type DiffArgs, type DiffResult, type DiffTotals, EXPORT_TOOL_DESCRIPTION, type ExportEngine, type ExportFormat, type ExportManifest, type ExportToolResult, type HtmlRenderOptions, type LineageInfo, type LineageNode, type LogOnlyLine, type ManifestArtifact, type ManifestScope, type MarkdownRenderOptions, type MaskMode, type MaskOptions, PRESETS, type PresetName, type PricingConfig, type PrunedFile, type RenderInput, type ReportLang, type RetentionOptions, type RetentionResult, STATS_USAGE, SessionExportConfig, type SessionStats, type StatsCardOptions, type ToolStat, type TranscriptConfig, type TranscriptEntry, type TranscriptTotals, USAGE, type ZipEntry, apply, applyContract, applyRetention, buildArchiveFromLog, buildEntries, buildLogOnly, buildManifest, buildTotals, buildZip, checkFormats, checkPinnedDir, computeStats, createExportTool, defaultHtmlOptions, defaultMarkdownOptions, describeArtifact, describeContract, describeRetention, diffSessions, entryFingerprint, executeBundle, executeDiff, formatDuration, formatStatsCard, id8, inject, maskEntries, maskText, name, parseArchiveArgs, parseBundleArgs, parseDiffArgs, parseExportFormat, parseStatsArgs, parseToolArguments, parseTranscriptArgs, renderEditorDiff, renderHtml, renderJson, renderLineageMermaid, renderManifest, renderMarkdown, renderTerminalDiff, renderTimelineMermaid, renderToolDiff, resolvePreset, sha256Text, sparkline, validateRetention, verifyManifest };

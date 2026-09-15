@@ -1,3 +1,13 @@
+## 1.7.0 — 2026-09-15
+
+Policy pack completion: retention + output contract + stats export.
+
+- **Retention** (`src/retention.ts`): `retentionDays` / `retentionMaxFiles` config — every successful `/transcript` run prunes old artifacts in the output directory (age cap, count cap, oldest first). Best-effort: stat/unlink failures never fail the export. Summary line appended on prune.
+- **Output contract** (`src/contract.ts`): `contract` config — team-pinned constraints the model cannot weaken per run: `requireMask`, `requireMaskMode`, `allowedFormats`, `pinnedDir`. Violations fail fast with a readable explanation. `/transcript` overlays the contract after arg parsing and validates formats + destination before writing.
+- **Presets upgraded**: `compliance` now pins mask-on + 90-day retention; `full` pins hash-mask + 365-day retention. Both enforce their mask mode as a contract.
+- **/stats --json / --out**: machine-readable stats payload (`{generator, stats}`) to stdout or file; `--out` without `--json` writes the terminal card.
+- 22 new tests (retention sweep semantics, contract overlay/checks, stats parser). 196/196 total, tsc clean.
+
 # Changelog
 
 ## 1.2.0 — 2026-09-13
