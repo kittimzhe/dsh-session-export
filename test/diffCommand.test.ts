@@ -83,7 +83,7 @@ describe('renderTerminalDiff', () => {
   const base: DiffResult = {
     sessionA: { id: 's-a', createdAt: 1_700_000_000_000 },
     sessionB: { id: 's-b', createdAt: 1_700_000_000_001 },
-    totalA: 5, totalB: 6, commonPrefixLen: 3,
+    totalA: 5, totalB: 6, commonPrefixLen: 3, commonSuffixLen: 1, changes: [],
     tailA: [entry('user', 'extra a'), entry('assistant', 'more a')],
     tailB: [entry('user', 'extra b')],
     totals: {
@@ -101,7 +101,7 @@ describe('renderTerminalDiff', () => {
   })
 
   it('renders common prefix', () => {
-    expect(renderTerminalDiff(base)).toContain('common=3')
+    expect(renderTerminalDiff(base)).toContain('common-prefix=3')
   })
 
   it('renders tail sections', () => {
@@ -114,5 +114,78 @@ describe('renderTerminalDiff', () => {
     const text = renderTerminalDiff(base)
     expect(text).toContain('Stats Delta')
     expect(text).toContain('+1')
+  })
+})
+
+describe('semantic diff (v1.8)', () => {
+  it('strips a common suffix', () => {
+    const a = [entry('user', 'q'), entry('assistant', 'x1'), entry('user', 'tail')]
+    const b = [entry('user', 'q'), entry('assistant', 'x2'), entry('user', 'tail')]
+    const r = diffSessions(a, b)
+    expect(r.commonPrefixLen).toBe(1)
+    expect(r.commonSuffixLen).toBe(1)
+    expect(r.changes).toHaveLength(1)
+    expect(r.changes[0]!.kind).toBe('changed')
+  })
+
+  it('classifies a B-only insertion as added', () => {
+    const a = [entry('user', 'q'), entry('user', 'z')]
+    const b = [entry('user', 'q'), entry('assistant', 'inserted'), entry('user', 'z')]
+    const r = diffSessions(a, b)
+    expect(r.commonPrefixLen).toBe(1)
+    expect(r.commonSuffixLen).toBe(1)
+    expect(r.changes).toHaveLength(1)
+    expect(r.changes[0]!.kind).toBe('added')
+    expect(r.changes[0]!.entriesB).toHaveLength(1)
+  })
+
+  it('classifies an A-only deletion as removed', () => {
+    const a = [entry('user', 'q'), entry('assistant', 'doomed'), entry('user', 'z')]
+    const b = [entry('user', 'q'), entry('user', 'z')]
+    const r = diffSessions(a, b)
+    expect(r.commonPrefixLen).toBe(1)
+    expect(r.commonSuffixLen).toBe(1)
+    expect(r.changes).toHaveLength(1)
+    expect(r.changes[0]!.kind).toBe('removed')
+    expect(r.changes[0]!.entriesA).toHaveLength(1)
+  })
+
+  it('identical sessions yield empty changes and full prefix/suffix', () => {
+    const a = [entry('user', '1'), entry('assistant', '2')]
+    const r = diffSessions(a, [...a])
+    expect(r.commonPrefixLen).toBe(2)
+    expect(r.commonSuffixLen).toBe(0) // suffix loop stops at prefix boundary
+    expect(r.changes).toHaveLength(0)
+  })
+
+  it('suffix never crosses the prefix', () => {
+    const a = [entry('user', 'only-a')]
+    const b = [entry('user', 'only-b')]
+    const r = diffSessions(a, b)
+    expect(r.commonPrefixLen).toBe(0)
+    expect(r.commonSuffixLen).toBe(0)
+    expect(r.changes).toHaveLength(1)
+    expect(r.changes[0]!.kind).toBe('changed')
+  })
+
+  it('terminal render includes the changes section', () => {
+    const result: DiffResult = {
+      sessionA: { id: 's-a', createdAt: 1 },
+      sessionB: { id: 's-b', createdAt: 2 },
+      totalA: 3, totalB: 4, commonPrefixLen: 1, commonSuffixLen: 1,
+      tailA: [], tailB: [],
+      changes: [
+        { kind: 'added', rangeA: [0, 0], rangeB: [1, 1], entriesA: [], entriesB: [entry('assistant', 'new')] },
+      ],
+      totals: {
+        a: { messages: 2, toolCalls: 0, inputTokens: 10, outputTokens: 10 },
+        b: { messages: 3, toolCalls: 0, inputTokens: 10, outputTokens: 20 },
+        delta: { messages: 1, toolCalls: 0, inputTokens: 0, outputTokens: 10 },
+      },
+    }
+    const text = renderTerminalDiff(result)
+    expect(text).toContain('Changes (middle region, classified)')
+    expect(text).toContain('＋ added')
+    expect(text).toContain('common-suffix=1')
   })
 })

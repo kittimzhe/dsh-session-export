@@ -380,6 +380,18 @@ interface DiffTotals {
     outputTokens: number;
   };
 }
+/** Change classification for one divergent region. */
+type ChangeKind = 'added' | 'removed' | 'changed';
+/** One classified divergence block between the two sessions. */
+interface ChangeBlock {
+  readonly kind: ChangeKind;
+  /** Index range in A's entries (changed: the A side; removed: the A-only run). */
+  readonly rangeA: readonly [number, number];
+  /** Index range in B's entries (changed: the B side; added: the B-only run). */
+  readonly rangeB: readonly [number, number];
+  readonly entriesA: readonly TranscriptEntry[];
+  readonly entriesB: readonly TranscriptEntry[];
+}
 interface DiffResult {
   sessionA: {
     id: string;
@@ -394,9 +406,12 @@ interface DiffResult {
   totalA: number;
   totalB: number;
   commonPrefixLen: number;
+  commonSuffixLen: number;
   tailA: TranscriptEntry[];
   tailB: TranscriptEntry[];
   totals: DiffTotals;
+  /** Classified divergence blocks (middle region only), in log order. */
+  changes: readonly ChangeBlock[];
 }
 declare const DIFF_USAGE: string;
 /** Parse `/diff` arguments. Returns a string on error. */
@@ -406,8 +421,10 @@ declare function entryFingerprint(entry: TranscriptEntry): string;
 /** Compute the diff of two entry arrays. */
 declare function diffSessions(entriesA: readonly TranscriptEntry[], entriesB: readonly TranscriptEntry[]): {
   commonPrefixLen: number;
+  commonSuffixLen: number;
   tailA: TranscriptEntry[];
   tailB: TranscriptEntry[];
+  changes: ChangeBlock[];
 };
 /** Render a compact terminal diff summary. */
 declare function renderTerminalDiff(result: DiffResult): string;

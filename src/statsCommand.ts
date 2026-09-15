@@ -85,7 +85,7 @@ export async function executeStats(
   const stats = computeStats(buildEntries(events), config?.pricing)
 
   if (parsed.json === true) {
-    const payload = JSON.stringify({ generator: 'dsh-session-export v1.7.0', stats }, null, 2)
+    const payload = JSON.stringify({ generator: 'dsh-session-export v1.8.0', stats }, null, 2)
     if (parsed.outPath !== undefined) {
       try {
         await atomicWriteFile(parsed.outPath, payload)

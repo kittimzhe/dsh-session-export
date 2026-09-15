@@ -1,3 +1,13 @@
+## 1.8.0 — 2026-09-15
+
+Semantic diff: common suffix + change classification.
+
+- `/diff` now strips the common suffix as well as the prefix, so shared endings (e.g. the same closing turns after a mid-session divergence) no longer pollute the "only in A/B" tails.
+- The divergent middle region is classified into `added` / `removed` / `changed` blocks with entry index ranges on both sides — alternating-run alignment over entry fingerprints.
+- Terminal output gains a "Changes (middle region, classified)" section with ＋/－/± markers; the HTML report gains color-coded change blocks with badges and per-side entry previews.
+- Summary lines now show both common-prefix and common-suffix counts.
+- 6 new tests. 202/202 total, tsc clean.
+
 ## 1.7.0 — 2026-09-15
 
 Policy pack completion: retention + output contract + stats export.
