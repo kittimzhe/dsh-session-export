@@ -18,5 +18,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # dsh-tools is an optional peer dependency (host provides it at
+      # runtime); install it explicitly for typecheck/tests in CI
+      - run: npm install --no-save @deepseek-ai/dsh-tools@^0.1.1-rc.2
       - run: npm run typecheck
       - run: npm test
