@@ -18,9 +18,5 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      # The @deepseek-ai/* rc lines mix peer ranges (dsh-commands@rc.8
-      # pulls dsh-agent@rc.8 while dsh-tools@rc.2 expects dsh-agent@rc.2).
-      # Legacy resolution installs the set that matches package-lock.
-      - run: npm install --no-save --legacy-peer-deps @deepseek-ai/dsh-tools@0.1.1-rc.2
       - run: npm run typecheck
       - run: npm test
