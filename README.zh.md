@@ -39,7 +39,7 @@
 
 ## 为什么需要它
 
-官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端。本插件补上它明确推迟的部分（见上方对比表）。
+官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端；官方 `@deepseek-ai/dsh-session-stats` 提供基础统计投影。两者是毛坯层，本插件是建在其上的证据层——确定性复盘报告、SHA-256 清单、脱敏、策略包、输出契约、`/diff` 与 `/bundle`（见上方对比表）。
 
 转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
 

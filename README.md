@@ -31,6 +31,8 @@ If your primary goal is context compression or long-term semantic memory, use a 
 | Batch | — | — | — | **`/archive --all --since`** |
 | Operational artifacts | Browser ZIP | Usually one-off exports | Memory state / indexes | **HTML/MD/JSON + `/stats` + `/archive` ZIPs** |
 
+Official ecosystem note (2026-09): the official `@deepseek-ai/dsh-session-log-export` (browser download of raw JSONL/zstd ZIP, JSONL backend only) and `@deepseek-ai/dsh-session-stats` (base stats projection) are the raw-utility layer; this plugin is the evidence layer built on top — deterministic replay reports, SHA-256 manifests, redaction, policy packs, output contracts, `/diff` and `/bundle`.
+
 ## Roadmap
 
 - **P1: report diff mode** — compare two exports and generate a structured session delta report (shipped in v1.6.0 → `/diff <id1> <id2>`).
