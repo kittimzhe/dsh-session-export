@@ -192,7 +192,13 @@ Plugin row config (all optional):
 
 ## Development
 
-Local type-checking of the tool module needs `@deepseek-ai/dsh-tools` (`^0.1.1-rc.2`, an optional peer) resolvable. Its transitive `@deepseek-ai/dsh-agent@0.1.1` line is currently unpublished on npm, so a fresh install cannot pull it — link the package from a checkout that already has it (e.g. a sibling `dsh-session-recall`):
+Local type-checking of the tool module needs `@deepseek-ai/dsh-tools` (`^0.1.1-rc.2`, an optional peer) resolvable. Its transitive `@deepseek-ai/dsh-agent@0.1.1` line is currently unpublished on npm, so a fresh install cannot pull it. Run the self-check to verify (and auto-fix) your environment:
+
+```bash
+npm run doctor
+```
+
+It links `@deepseek-ai/dsh-tools` from a sibling checkout automatically when available; the manual equivalent:
 
 ```bash
 ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
