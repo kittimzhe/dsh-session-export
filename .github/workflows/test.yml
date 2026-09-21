@@ -20,5 +20,10 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # Packaging checks on Node 22 only: the tsdown config loader (unrun)
+      # requires Promise.withResolvers (Node 22+). Node 20 compatibility is
+      # verified by typecheck + tests above.
       - run: npm run bundle
+        if: matrix.node == 22
       - run: npm pack --dry-run
+        if: matrix.node == 22
