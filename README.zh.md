@@ -186,7 +186,13 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 
 ## 开发
 
-工具模块的本地类型检查需要 `@deepseek-ai/dsh-tools`（`^0.1.1-rc.2`，可选 peer）可解析。其传递依赖 `@deepseek-ai/dsh-agent@0.1.1` 线当前已从 npm 下架，全新安装拉不下来——从已有该包的检出链接一份（如同级的 `dsh-session-recall`）：
+工具模块的本地类型检查需要 `@deepseek-ai/dsh-tools`（`^0.1.1-rc.2`，可选 peer）可解析。其传递依赖 `@deepseek-ai/dsh-agent@0.1.1` 线当前已从 npm 下架，全新安装拉不下来。运行自检脚本验证（并自动修复）环境：
+
+```bash
+npm run doctor
+```
+
+它会自动从同级检出链接 `@deepseek-ai/dsh-tools`；手动等价操作：
 
 ```bash
 ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools

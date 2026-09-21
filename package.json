@@ -74,11 +74,20 @@
     "bundle": "tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "doctor": "node scripts/doctor.mjs"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-tools": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kittimzhe/dsh-session-export.git"
+  },
+  "homepage": "https://github.com/kittimzhe/dsh-session-export#readme",
+  "bugs": {
+    "url": "https://github.com/kittimzhe/dsh-session-export/issues"
   }
 }
