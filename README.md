@@ -184,3 +184,7 @@ ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@de
 ## License
 
 MIT
+
+## Community
+
+- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
