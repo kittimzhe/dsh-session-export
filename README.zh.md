@@ -178,3 +178,7 @@ ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@de
 ## 许可
 
 MIT
+
+## 社区
+
+- [贡献指南](CONTRIBUTING.md) · [安全策略](SECURITY.md) · [行为准则](CODE_OF_CONDUCT.md)
