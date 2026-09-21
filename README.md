@@ -8,6 +8,23 @@ Deterministic session evidence reports for [DeepSeek Harness](https://github.com
 
 **Reads the session log itself through `ctx.sessionQuery` — no recorder, no resident memory, no drift.** Sessions that existed before the plugin was installed export just as well as live ones.
 
+## Quick Start
+
+**Requirements**: Node.js 20 or 22 · a DeepSeek Harness profile that mounts the `commands` and `sessionQuery` services (the shipped `web` / `agent` profiles qualify).
+
+```sh
+dsh plugin --profile web add dsh-session-export
+```
+
+Then, inside any session:
+
+```text
+/transcript        # single-file HTML replay report of the current session
+/stats             # terminal stats card with cost estimate
+```
+
+Full details — GitHub install route, `cordis.patch.yml` snippet, configuration — in [Install](#install-out-of-tree-plugin) below.
+
 ## Positioning
 
 `dsh-session-export` is a **session evidence layer**, not a memory optimizer.
