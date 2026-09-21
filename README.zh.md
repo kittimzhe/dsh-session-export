@@ -8,6 +8,23 @@
 
 **通过 `ctx.sessionQuery` 直读会话日志本身——无旁路采集、无驻留内存、无数据漂移。** 装插件之前的历史会话照样能导。
 
+## 快速开始
+
+**环境要求**：Node.js 20 或 22 · 挂载了 `commands` 与 `sessionQuery` 服务的 DeepSeek Harness profile（官方 `web` / `agent` profile 均满足）。
+
+```sh
+dsh plugin --profile web add dsh-session-export
+```
+
+装好后在任意会话里：
+
+```text
+/transcript        # 当前会话的单文件 HTML 复盘报告
+/stats             # 终端统计卡片 + 成本估算
+```
+
+完整细节（GitHub 安装方式、`cordis.patch.yml` 片段、配置项）见下文「安装」一节。
+
 ## 项目定位
 
 `dsh-session-export` 是**会话证据层**，不是记忆优化器。
