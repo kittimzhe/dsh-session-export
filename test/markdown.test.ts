@@ -44,6 +44,7 @@ function input(entries: TranscriptEntry[], extra: Partial<RenderInput> = {}): Re
       createdAt: 1_700_000_000_000,
       cwd: '/tmp/project',
       agentPreset: 'standard',
+      isSeeded: false,
     } as RenderInput['header'],
     entries,
     totals: { messages: entries.length, toolCalls: 1, inputTokens: 100, outputTokens: 50 },
