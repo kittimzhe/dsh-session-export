@@ -204,6 +204,16 @@ It links `@deepseek-ai/dsh-tools` from a sibling checkout automatically when ava
 ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
 ```
 
+## Session toolchain
+
+This plugin is one of three layers over the same trusted `ctx.sessionQuery` seam:
+
+| Plugin | Layer | Answers |
+|---|---|---|
+| `dsh-session-export` | Evidence | "What exactly happened in this session?" |
+| [`dsh-session-recall`](https://www.npmjs.com/package/dsh-session-recall) | Memory | "What did I do before, and where is it?" |
+| [`dsh-session-eval`](https://www.npmjs.com/package/dsh-session-eval) | Measurement | "Was that session good? Is the trend improving?" |
+
 ## License
 
 MIT
