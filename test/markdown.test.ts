@@ -39,7 +39,7 @@ function entry(seq: number, message: Message, extra: Partial<TranscriptEntry> = 
 function input(entries: TranscriptEntry[], extra: Partial<RenderInput> = {}): RenderInput {
   return {
     header: {
-      version: 0,
+      version: 3,
       id: '5712d6f0-d9b6-40e9-a060-11578030c2b8',
       createdAt: 1_700_000_000_000,
       cwd: '/tmp/project',
