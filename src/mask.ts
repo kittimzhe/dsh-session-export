@@ -31,6 +31,11 @@ interface MaskRule {
  */
 const BUILTIN_RULES: readonly MaskRule[] = [
   {
+    name: 'connection-string',
+    pattern: /\b((?:postgres(?:ql)?|rediss?|mysql):\/\/)[^:\s/@?#"'<>\\]*:[^\s/@?#"'<>\\]+(?=@)/gi,
+    replacement: '$1[REDACTED]',
+  },
+  {
     name: 'private-key',
     pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
     replacement: '[PRIVATE KEY REDACTED]',
@@ -48,7 +53,9 @@ const BUILTIN_RULES: readonly MaskRule[] = [
   },
   {
     name: 'email',
-    pattern: /\b[\w.+-]+@[\w-]+\.[\w.]{2,}\b/g,
+    // A passwordless database URL's user/host pair is not an email. The
+    // first lookbehind also prevents matching a suffix of its username.
+    pattern: /\b(?<![\w.+-])(?<!(?:postgres(?:ql)?|rediss?|mysql):\/\/)[\w.+-]+@[\w-]+\.[\w.]{2,}\b/gi,
     replacement: '[EMAIL]',
   },
 ]

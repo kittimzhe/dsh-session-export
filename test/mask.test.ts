@@ -126,3 +126,38 @@ describe('hash mode', () => {
     expect(out).toMatch(/#[0-9a-f]{8}/)
   })
 })
+
+
+describe('database connection credentials', () => {
+  const urls = [
+    'postgres://user:secretpass@host:5432/db',
+    'postgresql://user:secretpass@host/db',
+    'redis://:secretpass@host:6379/0',
+    'rediss://user:secretpass@host/0',
+    'mysql://user:secretpass@host/db',
+    'POSTGRES://user:p%40ss%3Aword@host/db',
+    'mysql://user:pass:word@[::1]:3306/db',
+  ]
+  for (const mode of ['mask', 'hash'] as const) {
+    it.each(urls)(`redacts credentials in ${mode} mode: %s`, (url) => {
+      const prefix = url.slice(0, url.indexOf('://') + 3)
+      const suffix = url.slice(url.indexOf('@'))
+      const out = maskText(url, { mode })
+      expect(out.startsWith(prefix)).toBe(true)
+      expect(out.endsWith(suffix)).toBe(true)
+      expect(out).not.toContain(url.slice(prefix.length, url.indexOf('@')))
+      expect(out).toEqual(mode === 'mask' ? `${prefix}[REDACTED]${suffix}` : expect.stringMatching(/:\/\/#[0-9a-f]{8}@/))
+    })
+    it('leaves URLs without passwords unchanged', () => {
+      for (const url of ['postgres://host/db', 'redis://host:6379/0', 'mysql://user@host/db', 'postgres://user:@host/db', 'postgres://user@db.example.com/db']) {
+        expect(maskText(url, { mode })).toBe(url)
+      }
+    })
+  }
+  it('redacts separate occurrences while retaining punctuation and non-database URLs', () => {
+    expect(maskText('("postgres://a:pass@host/db") redis://:pass@cache/0')).toBe(
+      '("postgres://[REDACTED]@host/db") redis://[REDACTED]@cache/0',
+    )
+    expect(maskText('https://user:pass@host/path')).toBe('https://user:pass@host/path')
+  })
+})
