@@ -8,7 +8,7 @@ Deterministic session evidence reports for [DeepSeek Harness](https://github.com
 
 **Reads the session log itself through `ctx.sessionQuery` — no recorder, no resident memory, no drift.** Sessions that existed before the plugin was installed export just as well as live ones.
 
-## Quick Start
+## Install
 
 **Requirements**: Node.js 20 or 22 · a DeepSeek Harness profile that mounts the `commands` and `sessionQuery` services (the shipped `web` / `agent` profiles qualify).
 
@@ -16,51 +16,36 @@ Deterministic session evidence reports for [DeepSeek Harness](https://github.com
 dsh plugin --profile web add dsh-session-export
 ```
 
-Then, inside any session:
+## Try it once
+
+Inside any session:
 
 ```text
-/transcript        # single-file HTML replay report of the current session
-/stats             # terminal stats card with cost estimate
+/transcript --html
 ```
 
-Full details — GitHub install route, `cordis.patch.yml` snippet, configuration — in [Install](#install-out-of-tree-plugin) below.
+```text
+Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcripts/transcript-a1b2c3d4-20260929T101530.html
+```
 
-## Positioning
+One self-contained HTML file — KPI cards, turn timeline, tool ranking, error highlighting, dark/light theme — opens offline, prints to PDF.
 
-`dsh-session-export` is a **session evidence layer**, not a memory optimizer.
+## The session toolchain
 
-- It focuses on **auditability** (what happened, in which order, with what failures).
-- It focuses on **reproducibility** (stable outputs, portable files, deterministic render).
-- It focuses on **operations** (batch archive, host-path artifacts, print-ready reports).
+| Plugin | Layer | Answers |
+|---|---|---|
+| **`dsh-session-export`** | **Evidence** | **"What exactly happened in this session?"** |
+| [`dsh-session-recall`](https://www.npmjs.com/package/dsh-session-recall) | Memory | "What did I do before, and where is it?" |
+| [`dsh-session-eval`](https://www.npmjs.com/package/dsh-session-eval) | Measurement | "Was that session good? Is the trend improving?" |
 
-If your primary goal is context compression or long-term semantic memory, use a memory framework; if your primary goal is evidence, review, and postmortem quality, use this plugin.
+All three read through the same trusted `ctx.sessionQuery` seam.
 
-## Competitive context
+## Contributing
 
-| Capability focus | Official `/export` | Recorder-style exporter | Memory frameworks | `dsh-session-export` |
-|---|---|---|---|---|
-| Primary outcome | Raw artifact download | Human-readable transcript | Context/memory optimization | **Evidence-grade replay report** |
-| Data source | Raw log package | Side-channel listener | Derived memory structures | **Canonical session log (`sessionQuery`)** |
-| Historical coverage | Backend-limited | Often partial without backfill | Usually selective recall | **Full history (incl. pre-install sessions)** |
-| Persistence backends | JSONL only | What the listener saw | Framework-specific | **Any backend (JSONL, SQLite, …)** |
-| Stats | — | In-panel counters | Framework-specific | **`/stats` card + cost estimate + tool ranking** |
-| Lineage / diffs / timeline | — | — | — | **Mermaid lineage, editor diffs, turn timeline** |
-| Batch | — | — | — | **`/archive --all --since`** |
-| Operational artifacts | Browser ZIP | Usually one-off exports | Memory state / indexes | **HTML/MD/JSON + `/stats` + `/archive` ZIPs** |
-
-Official ecosystem note (2026-09): the official `@deepseek-ai/dsh-session-log-export` (browser download of raw JSONL/zstd ZIP, JSONL backend only) and `@deepseek-ai/dsh-session-stats` (base stats projection) are the raw-utility layer; this plugin is the evidence layer built on top — deterministic replay reports, SHA-256 manifests, redaction, policy packs, output contracts, `/diff` and `/bundle`.
-
-## Roadmap
-
-- **P1: report diff mode** — compare two exports and generate a structured session delta report (shipped in v1.6.0 → `/diff <id1> <id2>`).
-- **P1: policy pack** — team-level presets for masking, retention, and output contract (shipped in v1.5.0 → `preset: 'compliance' | 'full'`).
-- **P2: bundle handoff** — one command to package replay report + raw archive + manifest for review workflows (shipped in v1.4.0 → `/bundle`).
-
-## Why
-
-The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP through the browser and supports the JSONL backend only. This plugin covers what it explicitly defers (see the table above).
-
-Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin renders **append-origin surface events** — everything the user actually saw — instead of the model-visible surface, whose compaction replacements would erase conversation the user already read.
+- **Local dev**: `npm ci && npm run doctor && npm run typecheck && npm test && npm run bundle` (Node 20 or 22; `npm run doctor` fixes the unpublished peer dep — see [CONTRIBUTING.md](CONTRIBUTING.md) Step 0).
+- **Start in the source**: [`src/render/html.ts`](src/render/html.ts), [`src/render/markdown.ts`](src/render/markdown.ts), [`src/mask.ts`](src/mask.ts) — the full source map is in [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Open gaps**: [#5](https://github.com/kittimzhe/dsh-session-export/issues/5), [#6](https://github.com/kittimzhe/dsh-session-export/issues/6), [#7](https://github.com/kittimzhe/dsh-session-export/issues/7) — or browse [issues labeled `good first issue`](https://github.com/kittimzhe/dsh-session-export/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+- **Rules**: behavior changes need tests; doc changes must update `README.md` and `README.zh.md` in sync; releases belong to the maintainer. Details: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Commands
 
@@ -85,7 +70,38 @@ Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin rende
 | `/archive --all --since 7d` | Batch-archive every session from the last 7 days |
 | `/diff <id1> <id2>` | **Session diff**: compare two sessions — common prefix, unique tails, stats delta (terminal or `--html` report) |
 
-Like every `ctx.commands` command, all four run on the human-command plane: results never enter model history and cost zero tokens.
+Like every `ctx.commands` command, all five run on the human-command plane: results never enter model history and cost zero tokens.
+
+## Positioning
+
+`dsh-session-export` is a **session evidence layer**, not a memory optimizer.
+
+- It focuses on **auditability** (what happened, in which order, with what failures).
+- It focuses on **reproducibility** (stable outputs, portable files, deterministic render).
+- It focuses on **operations** (batch archive, host-path artifacts, print-ready reports).
+
+If your primary goal is context compression or long-term semantic memory, use a memory framework; if your primary goal is evidence, review, and postmortem quality, use this plugin.
+
+## Why
+
+The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP through the browser and supports the JSONL backend only. This plugin covers what it explicitly defers (see the competitive table below).
+
+Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin renders **append-origin surface events** — everything the user actually saw — instead of the model-visible surface, whose compaction replacements would erase conversation the user already read.
+
+## Competitive context
+
+| Capability focus | Official `/export` | Recorder-style exporter | Memory frameworks | `dsh-session-export` |
+|---|---|---|---|---|
+| Primary outcome | Raw artifact download | Human-readable transcript | Context/memory optimization | **Evidence-grade replay report** |
+| Data source | Raw log package | Side-channel listener | Derived memory structures | **Canonical session log (`sessionQuery`)** |
+| Historical coverage | Backend-limited | Often partial without backfill | Usually selective recall | **Full history (incl. pre-install sessions)** |
+| Persistence backends | JSONL only | What the listener saw | Framework-specific | **Any backend (JSONL, SQLite, …)** |
+| Stats | — | In-panel counters | Framework-specific | **`/stats` card + cost estimate + tool ranking** |
+| Lineage / diffs / timeline | — | — | — | **Mermaid lineage, editor diffs, turn timeline** |
+| Batch | — | — | — | **`/archive --all --since`** |
+| Operational artifacts | Browser ZIP | Usually one-off exports | Memory state / indexes | **HTML/MD/JSON + `/stats` + `/archive` ZIPs** |
+
+Official ecosystem note (2026-09): the official `@deepseek-ai/dsh-session-log-export` (browser download of raw JSONL/zstd ZIP, JSONL backend only) and `@deepseek-ai/dsh-session-stats` (base stats projection) are the raw-utility layer; this plugin is the evidence layer built on top — deterministic replay reports, SHA-256 manifests, redaction, policy packs, output contracts, `/diff` and `/bundle`.
 
 ## Model-facing tool (v1.3)
 
@@ -180,6 +196,14 @@ Plugin row config (all optional):
 - Transcript in log order: user messages, assistant messages (provider/model provenance, token usage, collapsible reasoning), tool calls (arguments truncated; `str_replace_editor` rendered as ```diff blocks), tool results (error-aware)
 - `--full`: Mermaid turn timeline + log-only events appendix
 
+## Current gaps
+
+Shipped roadmap items live in the [CHANGELOG](CHANGELOG.md). Open work is tracked in issues:
+
+- [#5 — Markdown: content lines starting with `+`/`-` must not widen diff blocks](https://github.com/kittimzhe/dsh-session-export/issues/5)
+- [#6 — Redaction: connection-string pattern (postgres/redis/mysql URLs with credentials)](https://github.com/kittimzhe/dsh-session-export/issues/6)
+- [#7 — HTML report: tool-ranking bars link to the first call of that tool](https://github.com/kittimzhe/dsh-session-export/issues/7)
+
 ## Known limitations
 
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
@@ -187,32 +211,18 @@ Plugin row config (all optional):
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
 - Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.
-- Markdown escapes nothing inside fenced blocks; a diff whose own lines start with `+`/`-` renders as additional diff lines (acceptable for a diff view).
+- Markdown escapes nothing inside fenced blocks; a diff whose own lines start with `+`/`-` renders as additional diff lines (see [#5](https://github.com/kittimzhe/dsh-session-export/issues/5)).
 - `/archive` is export-only: there is no restore/import because DSH exposes no write-side session seam, so the ZIP is a backup, not a round-trip.
 
 ## Development
 
-Local type-checking of the tool module needs `@deepseek-ai/dsh-tools` (`^0.1.1-rc.2`, an optional peer) resolvable. Its transitive `@deepseek-ai/dsh-agent@0.1.1` line is currently unpublished on npm, so a fresh install cannot pull it. Run the self-check to verify (and auto-fix) your environment:
-
 ```bash
-npm run doctor
+npm ci
+npm run doctor      # peer-dep self-check — see CONTRIBUTING.md Step 0
+npm run typecheck   # tsc --noEmit
+npm test            # vitest run
+npm run bundle      # tsdown -> lib/
 ```
-
-It links `@deepseek-ai/dsh-tools` from a sibling checkout automatically when available; the manual equivalent:
-
-```bash
-ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
-```
-
-## Session toolchain
-
-This plugin is one of three layers over the same trusted `ctx.sessionQuery` seam:
-
-| Plugin | Layer | Answers |
-|---|---|---|
-| `dsh-session-export` | Evidence | "What exactly happened in this session?" |
-| [`dsh-session-recall`](https://www.npmjs.com/package/dsh-session-recall) | Memory | "What did I do before, and where is it?" |
-| [`dsh-session-eval`](https://www.npmjs.com/package/dsh-session-eval) | Measurement | "Was that session good? Is the trend improving?" |
 
 ## License
 

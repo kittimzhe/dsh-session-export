@@ -8,7 +8,7 @@
 
 **通过 `ctx.sessionQuery` 直读会话日志本身——无旁路采集、无驻留内存、无数据漂移。** 装插件之前的历史会话照样能导。
 
-## 快速开始
+## 安装
 
 **环境要求**：Node.js 20 或 22 · 挂载了 `commands` 与 `sessionQuery` 服务的 DeepSeek Harness profile（官方 `web` / `agent` profile 均满足）。
 
@@ -16,49 +16,36 @@
 dsh plugin --profile web add dsh-session-export
 ```
 
-装好后在任意会话里：
+## 试一次
+
+在任意会话里：
 
 ```text
-/transcript        # 当前会话的单文件 HTML 复盘报告
-/stats             # 终端统计卡片 + 成本估算
+/transcript --html
 ```
 
-完整细节（GitHub 安装方式、`cordis.patch.yml` 片段、配置项）见下文「安装」一节。
+```text
+Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcripts/transcript-a1b2c3d4-20260929T101530.html
+```
 
-## 项目定位
+一个自包含 HTML 文件——KPI 卡片、轮次时间轴、工具排行、错误高亮、暗/亮主题——离线可开，可打印成 PDF。
 
-`dsh-session-export` 是**会话证据层**，不是记忆优化器。
+## 会话工具链
 
-- 核心价值是**可审计**（发生了什么、顺序如何、失败点在哪）。
-- 核心价值是**可复现**（稳定输出、可移植文件、确定性渲染）。
-- 核心价值是**可运维**（批量归档、落 Host 路径、可打印交付物）。
+| 插件 | 层 | 回答的问题 |
+|---|---|---|
+| **`dsh-session-export`** | **证据层** | **"这个会话到底发生了什么？"** |
+| [`dsh-session-recall`](https://www.npmjs.com/package/dsh-session-recall) | 记忆层 | "我以前做过什么，在哪？" |
+| [`dsh-session-eval`](https://www.npmjs.com/package/dsh-session-eval) | 评测层 | "刚才的会话好不好？趋势在变好吗？" |
 
-如果你的主要目标是上下文压缩或语义记忆，优先用记忆框架；如果主要目标是复盘取证、代码评审和事故复盘，优先用本插件。
+三者都通过同一个受信的 `ctx.sessionQuery` 接缝读取。
 
-## 竞品视角
+## 贡献
 
-| 能力重心 | 官方 `/export` | 旁路监听型导出 | 记忆框架类插件 | `dsh-session-export` |
-|---|---|---|---|---|
-| 主要产物 | 原始日志下载 | 可读转录文本 | 记忆/上下文优化结果 | **证据级会话复盘报告** |
-| 数据来源 | 原始日志包 | 旁路事件流 | 推导后的记忆结构 | **会话主日志（`sessionQuery`）** |
-| 历史覆盖 | 受后端限制 | 无补录常不完整 | 通常按召回策略选取 | **全量历史（含装插件前会话）** |
-| 持久化后端 | 仅 JSONL | 监听器见到的 | 框架各异 | **任意后端（JSONL、SQLite…）** |
-| 统计 | — | 面板计数器 | 框架各异 | **`/stats` 卡片 + 成本估算 + 工具排行** |
-| 谱系 / diff / 时间轴 | — | — | — | **Mermaid 谱系、编辑器 diff、轮次时间轴** |
-| 批量 | — | — | — | **`/archive --all --since`** |
-| 运维交付 | 浏览器 ZIP | 常见单次导出 | 记忆状态/索引 | **HTML/MD/JSON + `/stats` + `/archive`** |
-
-## 功能优化路线图
-
-- **P1：报告对比模式** —— 对两次导出生成结构化差异报告（v1.6.0 已交付 → `/diff <id1> <id2>`）。
-- **P1：团队策略包** —— 统一脱敏、保留期、导出契约的配置预设（v1.5.0 已交付 → `preset: 'compliance' | 'full'`）。
-- **P2：交接打包** —— 一条命令打包报告 + 原始归档 + 清单，直连评审流程（v1.4.0 已交付 → `/bundle`）。
-
-## 为什么需要它
-
-官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端；官方 `@deepseek-ai/dsh-session-stats` 提供基础统计投影。两者是毛坯层，本插件是建在其上的证据层——确定性复盘报告、SHA-256 清单、脱敏、策略包、输出契约、`/diff` 与 `/bundle`（见上方对比表）。
-
-转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
+- **本地开发**：`npm ci && npm run doctor && npm run typecheck && npm test && npm run bundle`（Node 20/22；`npm run doctor` 自动修复未发布的 peer 依赖，见 [CONTRIBUTING.md](CONTRIBUTING.md) 第零步）。
+- **源码入口**：[`src/render/html.ts`](src/render/html.ts)、[`src/render/markdown.ts`](src/render/markdown.ts)、[`src/mask.ts`](src/mask.ts)——完整源码地图见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- **当前缺口**：[#5](https://github.com/kittimzhe/dsh-session-export/issues/5)、[#6](https://github.com/kittimzhe/dsh-session-export/issues/6)、[#7](https://github.com/kittimzhe/dsh-session-export/issues/7)——或浏览 [`good first issue` 标签](https://github.com/kittimzhe/dsh-session-export/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)。
+- **规矩**：行为变更必须带测试；文档必须 `README.md` 与 `README.zh.md` 同步改；版本发布由维护者执行。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 命令契约
 
@@ -76,14 +63,43 @@ dsh plugin --profile web add dsh-session-export
 | `/transcript --manifest` | **证据清单**：为本次每个导出物写 `.manifest.json` 边车（字节数 + SHA-256） |
 | `/transcript --full` | 附上 log-only 事件附录 + Mermaid 轮次时间轴 |
 | `/stats` | **终端统计卡**：消息、轮次、时长、工具调用（含失败）、token、成本、工具排行、sparkline——不写文件 |
-| `/archive` | 归档当前会话（含子代理后代）→ 逐会话 ZIP |
-| `/archive --all --since 7d` | 批量归档最近 7 天的全部会话 |
-| `/diff <id1> <id2>` | **会话对比**：比较两场会话——公共前缀、独有尾部、stats 差量（终端或 `--html` 报告） |
 | `/bundle` | **一键审查 ZIP**：转录报告 + 原始 JSONL 归档 + sha256 证据清单，为审计/审查流程设计 |
 | `/bundle --mask --manifest` | 脱敏转录 + 证据清单 |
 | `/bundle --no-archive` | 仅转录报告（不含原始归档） |
+| `/archive` | 归档当前会话（含子代理后代）→ 逐会话 ZIP |
+| `/archive --all --since 7d` | 批量归档最近 7 天的全部会话 |
+| `/diff <id1> <id2>` | **会话对比**：比较两场会话——公共前缀、独有尾部、stats 差量（终端或 `--html` 报告） |
 
-与所有 `ctx.commands` 命令一样，四个命令都运行在人类命令平面：结果不进模型历史，零 token 消耗。
+与所有 `ctx.commands` 命令一样，这五条命令都运行在人类命令平面：结果不进模型历史，零 token 消耗。
+
+## 项目定位
+
+`dsh-session-export` 是**会话证据层**，不是记忆优化器。
+
+- 核心价值是**可审计**（发生了什么、顺序如何、失败点在哪）。
+- 核心价值是**可复现**（稳定输出、可移植文件、确定性渲染）。
+- 核心价值是**可运维**（批量归档、落 Host 路径、可打印交付物）。
+
+如果你的主要目标是上下文压缩或语义记忆，优先用记忆框架；如果主要目标是复盘取证、代码评审和事故复盘，优先用本插件。
+
+## 为什么需要它
+
+官方 `@deepseek-ai/dsh-session-log-export` 通过浏览器下载原始 JSONL/zstd ZIP，且仅支持 JSONL 后端；官方 `@deepseek-ai/dsh-session-stats` 提供基础统计投影。两者是毛坯层，本插件是建在其上的证据层——确定性复盘报告、SHA-256 清单、脱敏、策略包、输出契约、`/diff` 与 `/bundle`（见下方对比表）。
+
+转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
+
+## 竞品视角
+
+| 能力重心 | 官方 `/export` | 旁路监听型导出 | 记忆框架类插件 | `dsh-session-export` |
+|---|---|---|---|---|
+| 主要产物 | 原始日志下载 | 可读转录文本 | 记忆/上下文优化结果 | **证据级会话复盘报告** |
+| 数据来源 | 原始日志包 | 旁路事件流 | 推导后的记忆结构 | **会话主日志（`sessionQuery`）** |
+| 历史覆盖 | 受后端限制 | 无补录常不完整 | 通常按召回策略选取 | **全量历史（含装插件前会话）** |
+| 持久化后端 | 仅 JSONL | 监听器见到的 | 框架各异 | **任意后端（JSONL、SQLite…）** |
+| 统计 | — | 面板计数器 | 框架各异 | **`/stats` 卡片 + 成本估算 + 工具排行** |
+| 谱系 / diff / 时间轴 | — | — | — | **Mermaid 谱系、编辑器 diff、轮次时间轴** |
+| 批量 | — | — | — | **`/archive --all --since`** |
+| 运维交付 | 浏览器 ZIP | 常见单次导出 | 记忆状态/索引 | **HTML/MD/JSON + `/stats` + `/archive`** |
 
 ## HTML 报告长什么样
 
@@ -123,7 +139,7 @@ Markdown 输出新增 **Mermaid 谱系图**（GitHub/VSCode 原生渲染），`-
       currency: '$'           # 货币标签
 ```
 
-## 安装（out-of-tree 插件）
+## 完整安装（out-of-tree 插件）
 
 从 npm：
 
@@ -174,6 +190,14 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 - 按日志顺序的转录：用户消息、assistant 消息（provider/model 出处、token 用量、可折叠 reasoning）、工具调用（参数截断；`str_replace_editor` 渲染成 ```diff 块）、工具结果（错误感知）
 - `--full`：Mermaid 轮次时间轴 + log-only 事件附录
 
+## 当前缺口
+
+已交付的路线图项见 [CHANGELOG](CHANGELOG.md)；未完成的工作一律进 issue：
+
+- [#5 —— Markdown：`+`/`-` 开头的内容行不得撑破 diff 块](https://github.com/kittimzhe/dsh-session-export/issues/5)
+- [#6 —— 脱敏：带凭据的连接串模式（postgres/redis/mysql URL）](https://github.com/kittimzhe/dsh-session-export/issues/6)
+- [#7 —— HTML 报告：工具排行条锚点到该工具第一次调用](https://github.com/kittimzhe/dsh-session-export/issues/7)
+
 ## 已知限制
 
 - 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
@@ -181,21 +205,17 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 - Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
 - 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
 - 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。
-- Markdown 代码块内部不做转义；diff 内容自带 `+`/`-` 行首时会渲染为附加 diff 行（diff 视图可接受）。
+- Markdown 代码块内部不做转义；diff 内容自带 `+`/`-` 行首时会渲染为附加 diff 行（修复中，见 [#5](https://github.com/kittimzhe/dsh-session-export/issues/5)）。
 - `/archive` 只出不进：DSH 没有写侧会话接缝，ZIP 是备份不是往返。
 
 ## 开发
 
-工具模块的本地类型检查需要 `@deepseek-ai/dsh-tools`（`^0.1.1-rc.2`，可选 peer）可解析。其传递依赖 `@deepseek-ai/dsh-agent@0.1.1` 线当前已从 npm 下架，全新安装拉不下来。运行自检脚本验证（并自动修复）环境：
-
 ```bash
-npm run doctor
-```
-
-它会自动从同级检出链接 `@deepseek-ai/dsh-tools`；手动等价操作：
-
-```bash
-ln -s ../dsh-session-recall/node_modules/@deepseek-ai/dsh-tools node_modules/@deepseek-ai/dsh-tools
+npm ci
+npm run doctor      # peer 依赖自检——见 CONTRIBUTING.md 第零步
+npm run typecheck   # tsc --noEmit
+npm test            # vitest run
+npm run bundle      # tsdown -> lib/
 ```
 
 ## 许可
