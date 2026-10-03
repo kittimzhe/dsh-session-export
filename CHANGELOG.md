@@ -1,3 +1,12 @@
+## 1.8.5 — 2026-10-03
+
+Docs polish round (no runtime changes).
+
+- Install detail completed: requirements, GitHub install route, the `cordis.patch.yml` row.
+- Contributor block links the open-gap issues directly; sample outputs aligned with the shipped version.
+- Community section; bilingual issue templates (`.github/ISSUE_TEMPLATE/`).
+- English/Chinese README sections kept in sync.
+
 ## 1.8.4 — 2026-10-02
 
 Contributor-first docs release.
