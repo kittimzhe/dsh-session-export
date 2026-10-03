@@ -1,3 +1,25 @@
+## 1.8.4 — 2026-10-02
+
+Contributor-first docs release.
+
+- README (en/zh): one-liner → install → try-once → toolchain table → 6-line contributor block; competitive/config sections moved below the fold.
+- "all four" corrected to the five human-plane commands (`/transcript` `/stats` `/archive` `/bundle` `/diff`).
+- Roadmap replaced by Current gaps linked to issues #5–#7; shipped roadmap items remain in the CHANGELOG.
+- `npm run doctor` + `@deepseek-ai/dsh-tools` softlink moved to CONTRIBUTING Step 0.
+- CHANGELOG backfilled for 1.8.1–1.8.3 (missing entries below).
+
+## 1.8.3 — 2026-09-26
+
+Peers aligned with harness 0.1.5-rc.3; test fixture header on the v3 SessionHeader schema.
+
+## 1.8.2 — 2026-09-21
+
+Governance docs (CONTRIBUTING/SECURITY/CoC), CI bundle/pack verification, quick-start docs, npm repository metadata + doctor self-check, session-toolchain cross-promo.
+
+## 1.8.1 — 2026-09-19
+
+CI test workflow green end-to-end (optional-peer installs, legacy-peer-deps for the mixed rc lines); docs clarifying the relationship to official plugins and near-name packages.
+
 ## 1.8.0 — 2026-09-15
 
 Semantic diff: common suffix + change classification.
