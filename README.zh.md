@@ -101,6 +101,12 @@ Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcr
 | 批量 | — | — | — | **`/archive --all --since`** |
 | 运维交付 | 浏览器 ZIP | 常见单次导出 | 记忆状态/索引 | **HTML/MD/JSON + `/stats` + `/archive`** |
 
+官方生态说明（2026-09）：官方 `@deepseek-ai/dsh-session-log-export`（浏览器下载原始 JSONL/zstd ZIP，仅 JSONL 后端）与 `@deepseek-ai/dsh-session-stats`（基础统计投影）是原始工具层；本插件是其上的证据层——确定性复盘报告、SHA-256 manifest、脱敏、策略包、输出契约、`/diff` 与 `/bundle`。
+
+## 模型可调用工具（v1.3）
+
+设置 `exposeTool: true` 可注册 `transcript_export`——与导出内核相同的类型化工具，模型可直接调用。预期桥接：`dsh-session-recall` 命中返回 `sessionId`，模型交给 `transcript_export`，用户磁盘上就有完整证据报告。每次调用一种格式（默认 `html`，可选 `md` / `json`），可选 `mask` / `manifest` / `last`；文件始终落到标准 `dsh-transcripts` 目录（或 `defaultDir`），带时间戳、不覆盖。该工具默认关闭，因为会把写本机文件的能力交给模型。
+
 ## HTML 报告长什么样
 
 ![HTML 报告（亮色主题）](https://github.com/kittimzhe/dsh-session-export/raw/main/docs/samples/report-light.png)

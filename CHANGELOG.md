@@ -7,6 +7,7 @@ Contributor-first docs release.
 - Roadmap replaced by Current gaps linked to issues #5–#7; shipped roadmap items remain in the CHANGELOG.
 - `npm run doctor` + `@deepseek-ai/dsh-tools` softlink moved to CONTRIBUTING Step 0.
 - CHANGELOG backfilled for 1.8.1–1.8.3 (missing entries below).
+- README.zh.md gains the Model-facing tool (v1.3) section + official ecosystem note; GitHub issue templates added.
 
 ## 1.8.3 — 2026-09-26
 

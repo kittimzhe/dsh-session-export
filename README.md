@@ -226,7 +226,7 @@ npm run bundle      # tsdown -> lib/
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ## Community
 
