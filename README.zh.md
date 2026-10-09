@@ -58,7 +58,7 @@ Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcr
 | `/transcript --id <sessionId>` | 导出另一个会话 |
 | `/transcript --last 30m` | **部分导出**：最近 30 分钟的条目（`7d`/`12h`/`30m`/`90s`） |
 | `/transcript --errors-only` | **调试视图**：报错的工具结果 ± 两条上下文 |
-| `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱等 |
+| `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱、数据库 URL 凭据等 |
 | `/transcript --mask-hash` | **确定性脱敏**：密文变 `#xxxxxxxx` 摘要——同密钥同标记，相等性在脱敏后仍可判 |
 | `/transcript --manifest` | **证据清单**：为本次每个导出物写 `.manifest.json` 边车（字节数 + SHA-256） |
 | `/transcript --full` | 附上 log-only 事件附录 + Mermaid 轮次时间轴 |

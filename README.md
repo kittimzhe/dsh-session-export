@@ -58,7 +58,7 @@ All three read through the same trusted `ctx.sessionQuery` seam.
 | `/transcript --id <sessionId>` | Export another session |
 | `/transcript --last 30m` | **Partial export**: entries from the last 30 minutes (`7d`/`12h`/`30m`/`90s`) |
 | `/transcript --errors-only` | **Debug view**: failed tool results with a two-entry context window |
-| `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails) from the output |
+| `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails, database URL credentials) from the output |
 | `/transcript --mask-hash` | **Deterministic redaction**: secrets become `#xxxxxxxx` digests — same secret → same marker, equality survives redaction |
 | `/transcript --manifest` | **Evidence manifest**: write a `.manifest.json` sidecar with byte size + SHA-256 for every artifact of this run |
 | `/transcript --full` | Append log-only events + Mermaid turn timeline |
