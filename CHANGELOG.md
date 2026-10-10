@@ -1,3 +1,11 @@
+## 1.8.6 — 2026-10-10
+
+Connection-string redaction (via #8 by varshith84).
+
+- Database connection URLs (`postgres/redis/rediss/mysql` schemes) in exported output now have their credentials redacted: handles URL-encoded passwords, IPv6 hosts, and multi-colon passwords.
+- A lookbehind guard keeps passwordless URLs (`user@host`) from being mistaken for emails.
+- First external contribution to land in the package.
+
 ## 1.8.5 — 2026-10-03
 
 Docs polish round (no runtime changes).
