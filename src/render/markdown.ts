@@ -56,7 +56,14 @@ function renderHeaderBlock(input: RenderInput): string {
   }
   if (input.stats?.cost !== undefined) {
     const c = input.stats.cost
-    rows.push(['Cost ≈', `${c.currency}${c.total.toFixed(4)} (in ${c.currency}${c.input.toFixed(4)} / out ${c.currency}${c.output.toFixed(4)})`])
+    if (c.cacheRead !== undefined) {
+      rows.push(['Cost input', `${c.currency}${c.input.toFixed(4)}`])
+      rows.push(['Cost cache-read', `${c.currency}${c.cacheRead.toFixed(4)}`])
+      rows.push(['Cost output', `${c.currency}${c.output.toFixed(4)}`])
+      rows.push(['Cost total ≈', `${c.currency}${c.total.toFixed(4)}`])
+    } else {
+      rows.push(['Cost ≈', `${c.currency}${c.total.toFixed(4)} (in ${c.currency}${c.input.toFixed(4)} / out ${c.currency}${c.output.toFixed(4)})`])
+    }
   }
   rows.push(['Exported', fmtTime(input.generatedAt)])
   rows.push(['Generator', input.generator])
