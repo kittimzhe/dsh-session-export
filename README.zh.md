@@ -61,6 +61,7 @@ Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcr
 | `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱、数据库 URL 凭据等 |
 | `/transcript --mask-hash` | **确定性脱敏**：密文变 `#xxxxxxxx` 摘要——同密钥同标记，相等性在脱敏后仍可判 |
 | `/transcript --manifest` | **证据清单**：为本次每个导出物写 `.manifest.json` 边车（字节数 + SHA-256） |
+| `/transcript --reproducible` | 将报告和清单的生成时间戳固定为零时刻，并使用稳定的默认文件名；相同日志和选项重复导出到相同路径时会覆盖文件，输出字节一致 |
 | `/transcript --full` | 附上 log-only 事件附录 + Mermaid 轮次时间轴 |
 | `/stats` | **终端统计卡**：消息、轮次、时长、工具调用（含失败）、token、成本、工具排行、sparkline——不写文件 |
 | `/bundle` | **一键审查 ZIP**：转录报告 + 原始 JSONL 归档 + sha256 证据清单，为审计/审查流程设计 |
@@ -203,7 +204,6 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 ## 已知限制
 
 - 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
-- 报告字节不可复现（内嵌生成时间戳）；`--manifest` 提供的是完整性校验（逐导出物 SHA-256），而非可复现性。
 - Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
 - 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
 - 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。
