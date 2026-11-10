@@ -156,12 +156,20 @@ function renderToolResult(
   if (error) {
     parts.push(`> Tool failed: \`${error.name}\` (\`${error.code}\`)`, '')
   }
-  for (const block of message.content) {
-    const inner = block.content
-      .map((b) => (b.type === 'text' ? b.text : `*(block: ${JSON.stringify(b.type)})*`))
-      .join('\n')
+  // Runtime shape note: DSH session logs (verified on 0.2.2-rc.1) store tool
+  // results as flat content blocks (content: [{ type: 'text', text }]), while
+  // the declared ToolResultMessage content is [ToolResultBlock]. Handle both.
+  for (const block of message.content as readonly ContentBlock[]) {
+    const inner =
+      'content' in block
+        ? block.content
+            .map((b) => (b.type === 'text' ? b.text : `*(block: ${JSON.stringify(b.type)})*`))
+            .join('\n')
+        : block.type === 'text'
+          ? block.text
+          : `*(block: ${JSON.stringify(block.type)})*`
     parts.push(fence('text', truncate(inner, options.resultCharLimit)), '')
-    if (block.isError) parts.push('> ⚠️ result flagged as error', '')
+    if ('isError' in block && block.isError) parts.push('> ⚠️ result flagged as error', '')
   }
   return parts
 }

@@ -30,6 +30,15 @@ function toolResult(text: string): Message {
   } as unknown as Message
 }
 
+function flatToolResult(text: string): Message {
+  return {
+    id: 'm3-flat',
+    role: 'user',
+    content: [{ type: 'text', text }],
+    source: { kind: 'tool', callId: 'call-1' },
+  } as unknown as Message
+}
+
 function entry(seq: number, message: Message, extra: Partial<TranscriptEntry> = {}): TranscriptEntry {
   const kind: TranscriptEntry['kind'] =
     message.role === 'assistant' ? 'assistant' : message.source.kind === 'tool' ? 'tool-result' : 'user'
@@ -92,6 +101,17 @@ describe('renderMarkdown', () => {
     const md = renderMarkdown(input([entry(1, toolResult('done: 0'))]))
     expect(md).toContain('### 🧾 Tool Result — call `call-1`')
     expect(md).toContain('done: 0')
+  })
+
+  it('renders flat tool-result blocks without crashing (DSH 0.2.2-rc.1 runtime shape)', () => {
+    const md = renderMarkdown(input([entry(1, flatToolResult('done: 0'))]))
+    expect(md).toContain('### 🧾 Tool Result — call `call-1`')
+    expect(md).toContain('done: 0')
+  })
+
+  it('still renders wrapped [ToolResultBlock] tool results (declared shape)', () => {
+    const md = renderMarkdown(input([entry(1, toolResult('wrapped: ok'))]))
+    expect(md).toContain('wrapped: ok')
   })
 
   it('renders reasoning inside details', () => {
@@ -187,3 +207,4 @@ describe('renderJson', () => {
     expect(doc.transcript[0].kind).toBe('user')
   })
 })
+
