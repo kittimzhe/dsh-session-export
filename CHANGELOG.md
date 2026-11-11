@@ -1,3 +1,10 @@
+## 1.9.2 — 2026-11-11
+
+Crash fix for DSH 0.2.2-rc.1 session logs (#13, via #14 by fx-an).
+
+- Markdown `/transcript` no longer crashes with `Cannot read properties of undefined (reading 'map')`: DSH 0.2.2-rc.1 logs store tool-result payloads as flat content blocks, and the Markdown renderer now handles both that runtime shape and the declared `[ToolResultBlock]` wrapper (mirroring the HTML renderer's existing guard).
+- `/transcript --html` and `--json` were unaffected; Markdown export now matches them.
+
 ## 1.9.1 — 2026-11-05
 
 Peer-range compatibility release (no behavior change).
