@@ -57,6 +57,8 @@ Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcr
 | `/transcript <path>` / `--out <path>` | 写入指定路径（`--out` 后允许空格） |
 | `/transcript --id <sessionId>` | 导出另一个会话 |
 | `/transcript --last 30m` | **部分导出**：最近 30 分钟的条目（`7d`/`12h`/`30m`/`90s`） |
+| `/transcript --last-turns 3` | **按轮次导出**：最近 3 轮对话（一轮 = 用户消息 → 下一条用户消息；末尾不完整的轮次也计入） |
+| `/transcript --turn 42` / `--turns 40:42` | 导出单轮或闭区间轮次（1 起）；越界上界自动收敛，选不到任何轮时报错并给出实际轮数 |
 | `/transcript --errors-only` | **调试视图**：报错的工具结果 ± 两条上下文 |
 | `/transcript --mask` | **脱敏**：遮蔽 API key、Bearer token、私钥、邮箱、数据库 URL 凭据等 |
 | `/transcript --mask-hash` | **确定性脱敏**：密文变 `#xxxxxxxx` 摘要——同密钥同标记，相等性在脱敏后仍可判 |

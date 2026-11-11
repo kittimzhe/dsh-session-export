@@ -34,6 +34,8 @@ export interface ManifestScope {
   readonly errorsOnly: boolean
   /** Epoch-ms lower bound from `--last`, when given. */
   readonly since?: number
+  /** Human-readable turn selection (e.g. "turns 40-42 of 45"), when given. */
+  readonly turns?: string
   /** True when `--full` (log-only appendix) was applied. */
   readonly full: boolean
 }
@@ -84,6 +86,7 @@ export function buildManifest(input: {
       entries: input.scope.entries,
       errorsOnly: input.scope.errorsOnly,
       ...(input.scope.since !== undefined ? { since: input.scope.since } : {}),
+      ...(input.scope.turns !== undefined ? { turns: input.scope.turns } : {}),
       full: input.scope.full,
     },
     mask: { mode: input.mask.mode },
