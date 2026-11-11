@@ -5,7 +5,7 @@
  *   /transcript [path] [--id <sessionId>] [--out <path…>]
  *               [--json] [--md] [--html] [--full]
  *               [--last <duration>] [--errors-only] [--mask] [--mask-hash]
- *               [--manifest]
+ *               [--manifest] [--reproducible]
  */
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-session-query'
@@ -28,7 +28,7 @@ import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 
 export const USAGE =
-  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]'
+  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest] [--reproducible]'
 
 export interface TranscriptArgs {
   readonly sessionId?: string
@@ -45,6 +45,8 @@ export interface TranscriptArgs {
   readonly maskHash: boolean
   /** `--manifest`: write a `.manifest.json` sidecar with per-artifact sha256. */
   readonly manifest: boolean
+  /** `--reproducible`: pin generation timestamps and default artifact names to epoch zero. */
+  readonly reproducible?: boolean
 }
 
 /** Parse raw command input; returns args or a usage-error string. */
@@ -64,6 +66,7 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     mask: boolean
     maskHash: boolean
     manifest: boolean
+    reproducible?: boolean
   } = {
     json: false,
     md: false,
@@ -126,6 +129,11 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     }
     if (token === '--manifest') {
       args.manifest = true
+      i += 1
+      continue
+    }
+    if (token === '--reproducible') {
+      args.reproducible = true
       i += 1
       continue
     }
@@ -253,8 +261,11 @@ export function toLineageInfo(trace: SessionTraceLike): LineageInfo {
 }
 
 /** Standard artifact base path (no extension): <dir>/dsh-transcripts/transcript-<id8>-<timestamp>. */
-export function transcriptBasePath(baseDir: string, sessionIdRaw: string): string {
-  return `${baseDir}/dsh-transcripts/transcript-${id8(sessionIdRaw)}-${timestampSlug(Date.now())}`
+export function transcriptBasePath(baseDir: string, sessionIdRaw: string, epochMs?: number): string {
+  // A pinned epoch must not acquire the host's local time zone in manifest paths.
+  // Ordinary exports retain the existing local-time filename convention.
+  const slug = epochMs === 0 ? '19700101-000000' : timestampSlug(epochMs ?? Date.now())
+  return `${baseDir}/dsh-transcripts/transcript-${id8(sessionIdRaw)}-${slug}`
 }
 
 /** Assemble the evidence manifest for one run's artifacts (shared by command and tool). */
@@ -378,12 +389,12 @@ export async function executeTranscript(
     stats,
     ...(filterNote !== undefined ? { filterNote } : {}),
     generator: GENERATOR,
-    generatedAt: Date.now(),
+    generatedAt: args.reproducible ? 0 : Date.now(),
   }
 
   const baseDir = config?.defaultDir ?? log.session.cwd ?? process.cwd()
   const outputs: Array<{ path: string; content: string }> = []
-  const defaultPath = args.outPath !== undefined ? undefined : transcriptBasePath(baseDir, String(sessionIdRaw))
+  const defaultPath = args.outPath !== undefined ? undefined : transcriptBasePath(baseDir, String(sessionIdRaw), args.reproducible ? 0 : undefined)
 
   if (args.md) {
     const path = defaultPath !== undefined ? `${defaultPath}.md` : requireExtension(args.outPath, '.md')

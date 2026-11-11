@@ -61,6 +61,7 @@ All three read through the same trusted `ctx.sessionQuery` seam.
 | `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails, database URL credentials) from the output |
 | `/transcript --mask-hash` | **Deterministic redaction**: secrets become `#xxxxxxxx` digests — same secret → same marker, equality survives redaction |
 | `/transcript --manifest` | **Evidence manifest**: write a `.manifest.json` sidecar with byte size + SHA-256 for every artifact of this run |
+| `/transcript --reproducible` | Pin report/manifest generation timestamps to epoch zero and use stable default filenames; repeated exports to the same paths replace those files with byte-identical output for the same log and options |
 | `/transcript --full` | Append log-only events + Mermaid turn timeline |
 | `/stats` | **Terminal stats card**: messages, turns, duration, tool calls (with failures), tokens, cost, per-tool ranking, sparkline — no files written |
 | `/bundle` | **Review ZIP**: transcript report(s) + raw JSONL archive + sha256 evidence manifest — one command for audit/review workflows |
@@ -203,7 +204,6 @@ Shipped roadmap items live in the [CHANGELOG](CHANGELOG.md). Open work is tracke
 ## Known limitations
 
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
-- Report bytes are not reproducible (embedded generation timestamps); `--manifest` provides integrity (SHA-256 per artifact), not reproducibility.
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
 - Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.
