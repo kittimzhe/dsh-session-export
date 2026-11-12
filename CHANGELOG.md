@@ -1,3 +1,12 @@
+## 1.10.0 — 2026-11-12
+
+Turn-based export (#15, via #16).
+
+- `/transcript --last-turns N` exports the last N conversation turns; `--last-turn 1` is the shorthand for a single latest turn. A turn runs from each user message to the next; an interrupted trailing turn counts, and preamble entries before the first user message are never selected.
+- `/transcript --turn 42` / `--turns 40:42` export one turn or an inclusive 1-based range. Upper bounds past the last turn clamp; selections that match nothing error with the actual turn count.
+- Turn selection composes with `--errors-only` and `--last` (applied first), surfaces as `Filtered view: turns 40-42 of 45` in the header, and lands in the manifest scope as a human-readable `turns` field.
+- 17 new tests; suite 242/242 green.
+
 ## 1.9.2 — 2026-11-11
 
 Crash fix for DSH 0.2.2-rc.1 session logs (#13, via #14 by fx-an).

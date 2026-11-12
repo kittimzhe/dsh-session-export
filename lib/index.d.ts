@@ -191,6 +191,8 @@ interface ManifestScope {
   readonly errorsOnly: boolean;
   /** Epoch-ms lower bound from `--last`, when given. */
   readonly since?: number;
+  /** Human-readable turn selection (e.g. "turns 40-42 of 45"), when given. */
+  readonly turns?: string;
   /** True when `--full` (log-only appendix) was applied. */
   readonly full: boolean;
 }
@@ -236,7 +238,16 @@ declare function verifyManifest(manifest: ExportManifest, artifacts: ReadonlyMap
 };
 //#endregion
 //#region src/command.d.ts
-declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]";
+declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>] [--errors-only] [--mask] [--mask-hash] [--manifest]";
+/** Turn selection: the last N turns, or a 1-based inclusive turn range. */
+type TurnSelection = {
+  readonly kind: 'last';
+  readonly n: number;
+} | {
+  readonly kind: 'range';
+  readonly from: number;
+  readonly to: number;
+};
 interface TranscriptArgs {
   readonly sessionId?: string;
   readonly outPath?: string;
@@ -246,6 +257,8 @@ interface TranscriptArgs {
   readonly full: boolean;
   /** Epoch-millisecond lower bound from `--last`. */
   readonly since?: number;
+  /** 1-based turn selection from `--last-turns` / `--turn` / `--turns`. */
+  readonly turns?: TurnSelection;
   readonly errorsOnly: boolean;
   readonly mask: boolean;
   /** `--mask-hash`: redact with deterministic digests instead of placeholders. */
