@@ -4,7 +4,8 @@
  * Grammar (command-owned, per dsh-commands: consumers own their grammar):
  *   /transcript [path] [--id <sessionId>] [--out <path…>]
  *               [--json] [--md] [--html] [--full]
- *               [--last <duration>] [--errors-only] [--mask] [--mask-hash]
+ *               [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>]
+ *               [--errors-only] [--mask] [--mask-hash]
  *               [--manifest]
  */
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
@@ -28,7 +29,12 @@ import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 
 export const USAGE =
-  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--errors-only] [--mask] [--mask-hash] [--manifest]'
+  'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>] [--errors-only] [--mask] [--mask-hash] [--manifest]'
+
+/** Turn selection: the last N turns, or a 1-based inclusive turn range. */
+export type TurnSelection =
+  | { readonly kind: 'last'; readonly n: number }
+  | { readonly kind: 'range'; readonly from: number; readonly to: number }
 
 export interface TranscriptArgs {
   readonly sessionId?: string
@@ -39,6 +45,8 @@ export interface TranscriptArgs {
   readonly full: boolean
   /** Epoch-millisecond lower bound from `--last`. */
   readonly since?: number
+  /** 1-based turn selection from `--last-turns` / `--turn` / `--turns`. */
+  readonly turns?: TurnSelection
   readonly errorsOnly: boolean
   readonly mask: boolean
   /** `--mask-hash`: redact with deterministic digests instead of placeholders. */
@@ -60,6 +68,7 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
     html: boolean
     full: boolean
     since?: number
+    turns?: TurnSelection
     errorsOnly: boolean
     mask: boolean
     maskHash: boolean
@@ -143,6 +152,40 @@ export function parseTranscriptArgs(rawInput: string): TranscriptArgs | string {
       i += 2
       continue
     }
+    if (token === '--last-turn' || token === '--last-turns') {
+      const value = tokens[i + 1]
+      if (value === undefined || value.startsWith('--')) return `${token} requires a positive integer (e.g. ${token === '--last-turn' ? '3' : '3'}).\n${USAGE}`
+      const n = Number(value)
+      if (!Number.isInteger(n) || n < 1) return `${token} expects a positive integer.\n${USAGE}`
+      if (args.turns !== undefined) return `Only one of --last-turns / --turn / --turns may be given.\n${USAGE}`
+      args.turns = { kind: 'last', n }
+      i += 2
+      continue
+    }
+    if (token === '--turn') {
+      const value = tokens[i + 1]
+      if (value === undefined || value.startsWith('--')) return `--turn requires a positive integer (e.g. 42).\n${USAGE}`
+      const n = Number(value)
+      if (!Number.isInteger(n) || n < 1) return `--turn expects a positive integer.\n${USAGE}`
+      if (args.turns !== undefined) return `Only one of --last-turns / --turn / --turns may be given.\n${USAGE}`
+      args.turns = { kind: 'range', from: n, to: n }
+      i += 2
+      continue
+    }
+    if (token === '--turns') {
+      const value = tokens[i + 1]
+      if (value === undefined || value.startsWith('--')) return `--turns requires an inclusive range (e.g. 40:42).\n${USAGE}`
+      const match = /^([0-9]+):([0-9]+)$/.exec(value)
+      if (match === null) return `--turns expects an inclusive range like 40:42.\n${USAGE}`
+      const from = Number(match[1])
+      const to = Number(match[2])
+      if (from < 1 || to < 1) return `--turns bounds must be positive integers.\n${USAGE}`
+      if (from > to) return `--turns lower bound must not exceed the upper bound.\n${USAGE}`
+      if (args.turns !== undefined) return `Only one of --last-turns / --turn / --turns may be given.\n${USAGE}`
+      args.turns = { kind: 'range', from, to }
+      i += 2
+      continue
+    }
     if (token.startsWith('--')) return `Unknown option: ${token}\n${USAGE}`
     if (positional !== undefined) return `Unexpected extra positional argument: ${token}\n${USAGE}`
     positional = token
@@ -206,6 +249,52 @@ export function buildLogOnly(events: readonly SessionEvent[]): LogOnlyLine[] {
   return lines
 }
 
+/** Result of applying a turn selection to transcript entries. */
+export interface TurnSlice {
+  readonly entries: TranscriptEntry[]
+  /** 1-based inclusive range actually kept (after clamping). */
+  readonly fromTurn: number
+  readonly toTurn: number
+  /** Total turns found in the input. */
+  readonly totalTurns: number
+}
+
+/**
+ * Select conversation turns by 1-based index. A turn starts at each user
+ * message and runs until the next user message; a trailing incomplete turn
+ * (user message with no reply yet) still counts. Entries before the first
+ * user message belong to no turn and are never selected. Ranges past the
+ * last turn are clamped; a selection that matches nothing is an error.
+ */
+export function selectTurns(entries: readonly TranscriptEntry[], selection: TurnSelection): TurnSlice | string {
+  const starts: number[] = []
+  entries.forEach((entry, index) => {
+    if (entry.kind === 'user') starts.push(index)
+  })
+  const totalTurns = starts.length
+  if (totalTurns === 0) return 'No conversation turns found: this session has no user messages.'
+  let fromTurn: number
+  let toTurn: number
+  if (selection.kind === 'last') {
+    toTurn = totalTurns
+    fromTurn = Math.max(1, totalTurns - selection.n + 1)
+  } else {
+    fromTurn = selection.from
+    toTurn = Math.min(selection.to, totalTurns)
+  }
+  if (fromTurn > totalTurns) {
+    return `Turn ${fromTurn} is out of range: this session has ${totalTurns} turn${totalTurns === 1 ? '' : 's'}.`
+  }
+  const startIndex = starts[fromTurn - 1] as number
+  const endIndex = toTurn < totalTurns ? (starts[toTurn] as number) : entries.length
+  return {
+    entries: entries.slice(startIndex, endIndex),
+    fromTurn,
+    toTurn,
+    totalTurns,
+  }
+}
+
 export function buildTotals(entries: readonly TranscriptEntry[]): TranscriptTotals {
   let toolCalls = 0
   let inputTokens = 0
@@ -261,7 +350,7 @@ export function transcriptBasePath(baseDir: string, sessionIdRaw: string): strin
 export function buildSessionManifest(input: {
   createdAt: number
   session: SessionHeader
-  scope: { entries: number; errorsOnly: boolean; since?: number; full: boolean }
+  scope: { entries: number; errorsOnly: boolean; since?: number; turns?: string; full: boolean }
   mask: { mode: 'off' | 'mask' | 'hash' }
   outputs: ReadonlyArray<{ path: string; content: string }>
 }): ExportManifest {
@@ -340,6 +429,19 @@ export async function executeTranscript(
 
   let entries = buildEntries(log.events)
 
+  // Turn selection: keep whole turns (user message through the entry before
+  // the next user message) before other filters narrow within them.
+  let turnNote: string | undefined
+  if (args.turns !== undefined) {
+    const slice = selectTurns(entries, args.turns)
+    if (typeof slice === 'string') return { kind: 'error', text: slice }
+    entries = slice.entries
+    turnNote =
+      slice.fromTurn === slice.toTurn
+        ? `turn ${slice.fromTurn} of ${slice.totalTurns}`
+        : `turns ${slice.fromTurn}-${slice.toTurn} of ${slice.totalTurns}`
+  }
+
   // --errors-only: keep failed tool results plus a two-entry context window.
   if (args.errorsOnly) {
     const keep = new Set<number>()
@@ -362,7 +464,9 @@ export async function executeTranscript(
         ? 'Filtered view: failed tool results with a two-entry context window (--errors-only)'
         : args.since !== undefined
           ? 'Filtered view: entries within --last'
-          : undefined
+          : turnNote !== undefined
+            ? `Filtered view: ${turnNote}`
+            : undefined
 
   const totals = buildTotals(entries)
   const stats = computeStats(entries, config?.pricing)
@@ -444,6 +548,7 @@ export async function executeTranscript(
           entries: entries.length,
           errorsOnly: args.errorsOnly,
           ...(args.since !== undefined ? { since: args.since } : {}),
+          ...(turnNote !== undefined ? { turns: turnNote } : {}),
           full: args.full,
         },
         mask: { mode: maskMode },

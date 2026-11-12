@@ -57,6 +57,8 @@ All three read through the same trusted `ctx.sessionQuery` seam.
 | `/transcript <path>` / `--out <path>` | Write to the given path (spaces allowed after `--out`) |
 | `/transcript --id <sessionId>` | Export another session |
 | `/transcript --last 30m` | **Partial export**: entries from the last 30 minutes (`7d`/`12h`/`30m`/`90s`) |
+| `/transcript --last-turns 3` | **Turn-based export**: the last 3 conversation turns (a turn = user message → next user message; an incomplete trailing turn counts) |
+| `/transcript --turn 42` / `--turns 40:42` | Export one turn or an inclusive turn range, 1-based; ranges past the end clamp, empty selections error with the actual turn count |
 | `/transcript --errors-only` | **Debug view**: failed tool results with a two-entry context window |
 | `/transcript --mask` | **Redact likely secrets** (API keys, bearer tokens, private keys, emails, database URL credentials) from the output |
 | `/transcript --mask-hash` | **Deterministic redaction**: secrets become `#xxxxxxxx` digests — same secret → same marker, equality survives redaction |
