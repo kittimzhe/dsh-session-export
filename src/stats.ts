@@ -32,6 +32,7 @@ export function computeStats(entries: readonly TranscriptEntry[], pricing?: Pric
   let failedToolCalls = 0
   let inputTokens = 0
   let outputTokens = 0
+  let cacheReadTokens = 0
   const perTool = new Map<string, ToolStat>()
   const perAssistantTokens: number[] = []
   /** callId → tool name, populated from assistant tool-call blocks. */
@@ -55,6 +56,7 @@ export function computeStats(entries: readonly TranscriptEntry[], pricing?: Pric
       if (entry.usage !== undefined) {
         inputTokens += entry.usage.inputTokens
         outputTokens += entry.usage.outputTokens
+        cacheReadTokens += entry.usage.cacheReadTokens ?? 0
         perAssistantTokens.push(entry.usage.outputTokens)
       } else {
         perAssistantTokens.push(0)
@@ -80,12 +82,15 @@ export function computeStats(entries: readonly TranscriptEntry[], pricing?: Pric
     pricing?.inputPerMillion !== undefined && pricing?.outputPerMillion !== undefined
       ? {
           input: (inputTokens / 1_000_000) * pricing.inputPerMillion,
+          ...(pricing.cacheReadPerMillion !== undefined
+            ? { cacheRead: (cacheReadTokens / 1_000_000) * pricing.cacheReadPerMillion }
+            : {}),
           output: (outputTokens / 1_000_000) * pricing.outputPerMillion,
           total: 0,
           currency,
         }
       : undefined
-  if (cost !== undefined) cost.total = cost.input + cost.output
+  if (cost !== undefined) cost.total = cost.input + cost.output + (cost.cacheRead ?? 0)
 
   return {
     messages: entries.length,
@@ -185,10 +190,17 @@ export function formatStatsCard(stats: SessionStats, options?: StatsCardOptions)
   row('Tokens', `${fmtTokens(stats.inputTokens)} in / ${fmtTokens(stats.outputTokens)} out`)
   if (stats.cost !== undefined) {
     const c = stats.cost
-    row(
-      'Cost ≈',
-      `${c.currency}${fmtCost(c.total)} (in ${c.currency}${fmtCost(c.input)} / out ${c.currency}${fmtCost(c.output)})`,
-    )
+    if (c.cacheRead !== undefined) {
+      row('Cost input', `${c.currency}${fmtCost(c.input)}`)
+      row('Cost cache-read', `${c.currency}${fmtCost(c.cacheRead)}`)
+      row('Cost output', `${c.currency}${fmtCost(c.output)}`)
+      row('Cost total ≈', `${c.currency}${fmtCost(c.total)}`)
+    } else {
+      row(
+        'Cost ≈',
+        `${c.currency}${fmtCost(c.total)} (in ${c.currency}${fmtCost(c.input)} / out ${c.currency}${fmtCost(c.output)})`,
+      )
+    }
   }
   if (stats.perAssistantTokens.length > 1) {
     row('Output/turn', sparkline(stats.perAssistantTokens))

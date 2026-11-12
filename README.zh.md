@@ -147,6 +147,8 @@ Markdown 输出新增 **Mermaid 谱系图**（GitHub/VSCode 原生渲染），`-
       currency: '$'           # 货币标签
 ```
 
+可选设置 `pricing.cacheReadPerMillion`，单独计算缓存读取成本。用量计数互不重叠：`inputTokens` 仅为未缓存输入，`cacheReadTokens` 为额外的缓存输入。配置该单价（包括零）后，终端、Markdown 和 HTML 卡片会分别显示输入、缓存读取、输出成本及其总和。未配置时，原有双单价估算和输出保持不变。
+
 ## 完整安装（out-of-tree 插件）
 
 从 npm：
@@ -207,7 +209,7 @@ dsh plugin --profile web add github:kittimzhe/dsh-session-export
 - 导出走受信的 `ctx.sessionQuery` 接缝；没有该服务的组合无法挂载本插件。
 - 报告字节不可复现（内嵌生成时间戳）；`--manifest` 提供的是完整性校验（逐导出物 SHA-256），而非可复现性。
 - Token 汇总按 assistant 消息的 `usage` 记录累加；适配器未上报 usage 的步骤计零。
-- 成本为牌价估算；未建模缓存命中折扣（`cacheReadTokens` 不单独计价）。
+- 成本按配置牌价估算；仅配置 `pricing.cacheReadPerMillion` 时单独计算缓存读取成本，尚未建模缓存写入成本。
 - 脱敏基于模式匹配、尽力而为：覆盖常见凭据形态，不保证遮蔽所有可能的秘密。
 - Markdown 只对可能破坏代码块的内容做处理：`+`/`-` 开头的 diff 内容行重加前缀空格；含三个反引号开头之行的内容体改用四反引号围栏；其余内容原样输出。
 - `/archive` 只出不进：DSH 没有写侧会话接缝，ZIP 是备份不是往返。
