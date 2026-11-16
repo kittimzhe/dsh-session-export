@@ -1,3 +1,11 @@
+## 1.11.0 — 2026-11-16
+
+Cost visibility and reproducible exports (#9/#12, #10/#11 by @Doomguy-BFG9000).
+
+- Optional `pricing.cacheReadPerMillion` rate prices cache-read tokens separately; when configured, terminal/Markdown/HTML output shows input, cache-read, output, and total cost rows. Input and cache-read counts are disjoint per the LLM token contract, so no double-counting.
+- `/transcript --reproducible` pins Markdown/HTML/JSON generation timestamps and the manifest `createdAt` to epoch zero, and default artifact names become stable — repeated reproducible exports to the same paths replace prior files and hash identically. Without the flag, real timestamps and naming behavior are unchanged.
+- Both features coexist with the 1.10.0 turn-selection surface; suite 256/256 green.
+
 ## 1.10.0 — 2026-11-12
 
 Turn-based export (#15, via #16).

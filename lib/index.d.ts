@@ -106,12 +106,16 @@ interface ToolStat {
 interface PricingConfig {
   readonly inputPerMillion?: number;
   readonly outputPerMillion?: number;
+  /** Optional rate for the disjoint `cacheReadTokens` usage count. */
+  readonly cacheReadPerMillion?: number;
   /** Currency label rendered next to the estimate, e.g. `'$'` or `'¥'`. */
   readonly currency?: string;
 }
 /** Token-cost estimate derived from usage totals. */
 interface CostEstimate {
   readonly input: number;
+  /** Present only when a cache-read rate was configured (including zero). */
+  readonly cacheRead?: number;
   readonly output: number;
   readonly total: number;
   readonly currency: string;
@@ -238,7 +242,7 @@ declare function verifyManifest(manifest: ExportManifest, artifacts: ReadonlyMap
 };
 //#endregion
 //#region src/command.d.ts
-declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>] [--errors-only] [--mask] [--mask-hash] [--manifest]";
+declare const USAGE = "Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>] [--errors-only] [--mask] [--mask-hash] [--manifest] [--reproducible]";
 /** Turn selection: the last N turns, or a 1-based inclusive turn range. */
 type TurnSelection = {
   readonly kind: 'last';
@@ -259,6 +263,8 @@ interface TranscriptArgs {
   readonly since?: number;
   /** 1-based turn selection from `--last-turns` / `--turn` / `--turns`. */
   readonly turns?: TurnSelection;
+  /** `--reproducible`: pin generation timestamps and default artifact names to epoch zero. */
+  readonly reproducible?: boolean;
   readonly errorsOnly: boolean;
   readonly mask: boolean;
   /** `--mask-hash`: redact with deterministic digests instead of placeholders. */
