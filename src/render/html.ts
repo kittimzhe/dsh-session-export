@@ -59,6 +59,7 @@ function id8(id: string): string {
 
 type LabelKey =
   | 'title' | 'messages' | 'toolCalls' | 'tokensIn' | 'tokensOut' | 'duration' | 'turns' | 'cost'
+  | 'costInput' | 'costCacheRead' | 'costOutput' | 'costTotal'
   | 'failedNote' | 'sparkline' | 'turnTimeline' | 'turn' | 'toolCallsSection' | 'transcript'
   | 'user' | 'assistant' | 'toolResult' | 'result' | 'reasoning' | 'toolFailed'
   | 'jumpError' | 'footer' | 'theme'
@@ -76,6 +77,10 @@ const LABELS: Record<LabelKey, { readonly en: string; readonly zh: string }> = {
   duration: { en: 'Duration', zh: '时长' },
   turns: { en: 'Turns', zh: '轮次' },
   cost: { en: 'Cost ≈', zh: '成本 ≈' },
+  costInput: { en: 'Cost input', zh: '输入成本' },
+  costCacheRead: { en: 'Cost cache-read', zh: '缓存读取成本' },
+  costOutput: { en: 'Cost output', zh: '输出成本' },
+  costTotal: { en: 'Cost total ≈', zh: '总成本 ≈' },
   failedNote: { en: '{n} failed', zh: '{n} 次失败' },
   sparkline: { en: 'Output tokens per assistant message', zh: '每条助手消息的输出 token' },
   turnTimeline: { en: 'Turn timeline', zh: '轮次时间轴' },
@@ -197,8 +202,15 @@ function renderKpiGrid(input: RenderInput, lang: ReportLang): string {
   ]
   const cost = stats?.cost
   if (cost !== undefined) {
+    if (cost.cacheRead !== undefined) {
+      for (const [label, amount] of [
+        ['costInput', cost.input], ['costCacheRead', cost.cacheRead], ['costOutput', cost.output],
+      ] as const) {
+        cards.push({ label, value: `${cost.currency}${amount >= 0.01 ? amount.toFixed(2) : amount.toFixed(4)}`, tip: 'tipCost' })
+      }
+    }
     cards.push({
-      label: 'cost',
+      label: cost.cacheRead !== undefined ? 'costTotal' : 'cost',
       value: `${cost.currency}${cost.total >= 0.01 ? cost.total.toFixed(2) : cost.total.toFixed(4)}`,
       tip: 'tipCost',
     })

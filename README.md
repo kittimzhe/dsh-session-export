@@ -146,6 +146,8 @@ Set a price table once and every export/stats run shows the estimated cost:
       currency: '$'           # label rendered next to the estimate
 ```
 
+Optionally set `pricing.cacheReadPerMillion` to price cache-read tokens separately. Usage counts are disjoint: `inputTokens` is uncached input, and `cacheReadTokens` is additional cached input. With this rate (including zero), terminal, Markdown, and HTML cards show input / cache-read / output costs and their total. Without it, the existing two-rate estimate and output are unchanged.
+
 ## Install (out-of-tree plugin)
 
 From npm:
@@ -207,7 +209,7 @@ Shipped roadmap items live in the [CHANGELOG](CHANGELOG.md). Open work is tracke
 - Exports run through the trusted `ctx.sessionQuery` seam; a composition without it cannot mount this plugin.
 - Report bytes are not reproducible (embedded generation timestamps); `--manifest` provides integrity (SHA-256 per artifact), not reproducibility.
 - Token totals sum per-assistant-message `usage` records; steps whose adapter reported no usage contribute zero.
-- Cost is an estimate from list prices; cache-hit discounts are not modeled (`cacheReadTokens` is not priced separately).
+- Cost is an estimate from configured list prices; cache reads are priced separately only with `pricing.cacheReadPerMillion`. Cache-write pricing is not modeled.
 - Masking is pattern-based and best-effort: it redacts common credential shapes, not all possible secrets.
 - Markdown escapes only what can break a block: diff content lines starting with `+`/`-` are re-prefixed with a space, and bodies containing a ``` line get a four-backtick fence; other content passes through verbatim.
 - `/archive` is export-only: there is no restore/import because DSH exposes no write-side session seam, so the ZIP is a backup, not a round-trip.
