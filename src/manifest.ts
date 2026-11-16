@@ -5,8 +5,8 @@
  * `/transcript` run produced: the file path, its byte size, and a SHA-256
  * digest. It makes the export *verifiable*: anyone holding the artifacts can
  * recompute the digests and prove the files are exactly what the generator
- * wrote — integrity, not reproducibility (report bytes embed generation
- * timestamps).
+ * wrote. Without `--reproducible`, report bytes embed real generation
+ * timestamps, so integrity alone does not imply reproducibility.
  *
  * Pure functions only: hashing takes artifact *contents*, writing belongs to
  * the caller.
