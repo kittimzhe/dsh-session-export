@@ -72,6 +72,8 @@ export interface ToolStat {
 export interface PricingConfig {
   readonly inputPerMillion?: number
   readonly outputPerMillion?: number
+  /** Optional rate for the disjoint `cacheReadTokens` usage count. */
+  readonly cacheReadPerMillion?: number
   /** Currency label rendered next to the estimate, e.g. `'$'` or `'¥'`. */
   readonly currency?: string
 }
@@ -79,6 +81,8 @@ export interface PricingConfig {
 /** Token-cost estimate derived from usage totals. */
 export interface CostEstimate {
   readonly input: number
+  /** Present only when a cache-read rate was configured (including zero). */
+  readonly cacheRead?: number
   readonly output: number
   readonly total: number
   readonly currency: string
