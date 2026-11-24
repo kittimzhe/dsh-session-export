@@ -91,6 +91,13 @@ Exported 23 messages (41 tool calls, 128450 tokens) → /path/to/cwd/dsh-transcr
 
 转录语义遵循 `@deepseek-ai/dsh-session/surface`：本插件渲染 **append-origin 表面事件**——用户真实看到过的全部内容——而不是模型可见表面（后者的 compaction 替换会抹掉用户已经读过的对话）。
 
+## 设计血统
+
+本插件与 DeepSeek 公开的主动式 agent 研究原型 [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype)（《Exploring Super-agent Design: Towards a More Autonomous Agent System》）同属一个生态、同一套打包体系：都是经 `cordis.patch.yml` 组装的 DSH bundle。该设计体系的两条原则在这里直接成立：
+
+- **注意力经济学。** 插件新增的每一个界面元素都在消耗人的注意力，价值撑不起成本的就该删。本插件不加常驻 UI——一切经命令触发，交付物是一份按需打开的自包含报告。证据只在被阅读时才花注意力。
+- **外部文本是纯数据。** 报告逐字嵌入会话内容，因为转录是证据而不是指令；导出管线的任何环节都不会把转录文本回灌成 prompt。
+
 ## 竞品视角
 
 | 能力重心 | 官方 `/export` | 旁路监听型导出 | 记忆框架类插件 | `dsh-session-export` |

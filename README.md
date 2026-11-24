@@ -91,6 +91,13 @@ The shipped `@deepseek-ai/dsh-session-log-export` downloads a raw JSONL/zstd ZIP
 
 Transcript semantics follow `@deepseek-ai/dsh-session/surface`: the plugin renders **append-origin surface events** — everything the user actually saw — instead of the model-visible surface, whose compaction replacements would erase conversation the user already read.
 
+## Design lineage
+
+This plugin belongs to the same ecosystem and packaging system as DeepSeek's published agent-system research prototype [`deepseek-ai/dsh-superagent-prototype`](https://github.com/deepseek-ai/dsh-superagent-prototype) (*Exploring Super-agent Design: Towards a More Autonomous Agent System*): both are DSH bundles assembled through `cordis.patch.yml`. Two principles from that design system carry over directly:
+
+- **Attention economics.** Every surface a plugin adds spends human attention, and anything that cannot justify its cost is dropped. This plugin adds no ambient UI — everything runs through commands, and the deliverable is a self-contained report you open when needed. Evidence costs attention only when read.
+- **External text is pure data.** Reports embed conversation content verbatim because transcripts are evidence, not instructions; nothing in the export pipeline feeds transcript text back into a prompt.
+
 ## Competitive context
 
 | Capability focus | Official `/export` | Recorder-style exporter | Memory frameworks | `dsh-session-export` |
