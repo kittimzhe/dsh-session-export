@@ -1,3 +1,13 @@
+## 1.11.2 — 2026-11-25
+
+Contract now covers /bundle and the model tool; retention sweeps HTML reports and archive ZIPs; the generator version is pinned to the package.
+
+- `/bundle` and the `transcript_export` tool now apply the same output contract as `/transcript` (shared `applyContract` / `checkFormats` / `checkPinnedDir`): `requireMask` forces masking on, and a disallowed format or an out-of-pin destination fails fast with the same `output contract: …` error plus contract summary. Previously the contract was only enforced on `/transcript`.
+- `checkPinnedDir` resolves the requested path before the prefix comparison, so `--out /safe/dir/../evil/x.md` can no longer traverse out of a `pinnedDir` pin; the boundary uses a trailing separator, so sibling directories (`/safe/dir2`) stay rejected.
+- Retention sweeps prune expired `.html` reports and `dsh-session-*.zip` archive ZIPs in addition to the existing artifact patterns; the prefix + suffix gate keeps `transcript-*` reports and unrelated files untouched.
+- All version strings the package stamps (artifact generator lines, evidence manifests, `/stats --json`, archive `toolVersion`) now derive from one `src/version.ts` literal guard-tested against `package.json`, ending the 1.8.0 / 1.5.0 drift. Archive `toolVersion` is documented as build provenance — the archive format version remains `schemaVersion`.
+- 11 new tests; suite 267/267 green.
+
 ## 1.11.1 — 2026-11-23
 
 Peer-range compatibility release (no behavior change).

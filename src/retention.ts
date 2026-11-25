@@ -14,10 +14,10 @@ import { mkdir, readdir, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** Artifact filename prefixes this plugin generates. */
-const ARTIFACT_PREFIXES = ['transcript-', 'archive-', 'bundle-', 'diff-'] as const
+const ARTIFACT_PREFIXES = ['transcript-', 'archive-', 'bundle-', 'diff-', 'dsh-session-'] as const
 
 /** Suffixes (with extension) that identify generated artifacts. */
-const ARTIFACT_SUFFIXES = ['.md', '.json', '.zip', '.manifest.json'] as const
+const ARTIFACT_SUFFIXES = ['.md', '.json', '.zip', '.manifest.json', '.html'] as const
 
 /** Whether a filename looks like one of this plugin's artifacts. */
 function isArtifact(name: string): boolean {

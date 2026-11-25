@@ -92,3 +92,32 @@ describe('executeBundle', () => {
     expect(await bundle('--last 30m')).toContain('Bundled →')
   })
 })
+
+describe('executeBundle contract', () => {
+  it('requireMask forces masking even when the run did not ask for it', async () => {
+    const dir = mkdtempSync(`${tmpdir()}/bundle-`)
+    tmpRoots.push(dir)
+    const r = await executeBundle(mockCtx(), mockInvocation(''), { defaultDir: dir, contract: { requireMask: true } })
+    expect(r.kind).toBe('success')
+    expect(r.text).toContain('mask-redacted')
+  })
+
+  it('rejects a disallowed transcript format', async () => {
+    const r = await executeBundle(mockCtx(), mockInvocation(''), {
+      defaultDir: '/tmp/bundle-contract-x',
+      contract: { allowedFormats: ['json'] },
+    })
+    expect(r.kind).toBe('error')
+    expect(r.text).toContain('not allowed')
+    expect(r.text).toContain('formats: json')
+  })
+
+  it('rejects an output path outside the pinned dir', async () => {
+    const dir = mkdtempSync(`${tmpdir()}/bundle-pin-`)
+    tmpRoots.push(dir)
+    const r = await executeBundle(mockCtx(), mockInvocation(''), { defaultDir: dir, contract: { pinnedDir: `${dir}/evidence` } })
+    expect(r.kind).toBe('error')
+    expect(r.text).toContain('artifacts may only be written under')
+    expect(r.text).toContain(`${dir}/evidence`)
+  })
+})

@@ -12,6 +12,7 @@
  *
  * @module dsh-session-export/contract
  */
+import { resolve, sep } from 'node:path'
 import type { TranscriptConfig } from './command.ts'
 
 /** Formats the transcript pipeline can render. */
@@ -64,13 +65,19 @@ export function checkFormats(contract: Contract, requested: readonly ExportForma
 
 /**
  * Check a requested output path against the pinned directory.
+ *
+ * The requested path (not the config value) is resolved first, so `..`
+ * segments cannot smuggle a traversal past the prefix check; the boundary
+ * is a trailing separator (pin + sep), so `/safe/dir2` never counts as
+ * inside pin `/safe/dir`.
+ *
  * @returns An error string when the path escapes the pinned directory.
  */
 export function checkPinnedDir(contract: Contract, outPath: string | undefined): string | undefined {
   if (contract.pinnedDir === undefined || outPath === undefined) return undefined
-  const normalizedPin = contract.pinnedDir.replace(/\/+$/, '')
-  const normalizedOut = outPath.replace(/\/+$/, '')
-  if (normalizedOut === normalizedPin || normalizedOut.startsWith(`${normalizedPin}/`)) return undefined
+  const normalizedPin = contract.pinnedDir.replace(/[\\/]+$/, '')
+  const resolvedOut = resolve(outPath)
+  if (resolvedOut === normalizedPin || resolvedOut.startsWith(`${normalizedPin}${sep}`)) return undefined
   return `output contract: artifacts may only be written under ${contract.pinnedDir} (requested: ${outPath})`
 }
 

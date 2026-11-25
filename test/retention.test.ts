@@ -50,6 +50,32 @@ describe('retention', () => {
     expect(remaining).toEqual(['transcript-new.md'])
   })
 
+  it('deletes expired HTML reports', async () => {
+    const dir = await makeDir()
+    const old = await seedArtifact(dir, 'transcript-a-111.html', 100)
+    await seedArtifact(dir, 'transcript-b-222.md', 1)
+    const result = await applyRetention(dir, { retentionDays: 30 })
+    expect(result.deleted.map((f) => f.path)).toEqual([old])
+    expect(result.considered).toBe(2)
+    const remaining = await readdir(dir)
+    expect(remaining).toContain('transcript-b-222.md')
+    expect(remaining).not.toContain('transcript-a-111.html')
+  })
+
+  it('deletes expired archive ZIPs (dsh-session-*) without touching transcript-* files', async () => {
+    const dir = await makeDir()
+    const oldZip = await seedArtifact(dir, 'dsh-session-ca62e005-20260101.zip', 100)
+    await seedArtifact(dir, 'dsh-session-ca62e005-20260102.zip', 1)
+    await seedArtifact(dir, 'transcript-ca62e005-20260102-030405.md', 1)
+    const result = await applyRetention(dir, { retentionDays: 30 })
+    expect(result.deleted.map((f) => f.path)).toEqual([oldZip])
+    expect(result.considered).toBe(3)
+    const remaining = await readdir(dir)
+    expect(remaining).toContain('dsh-session-ca62e005-20260102.zip')
+    expect(remaining).toContain('transcript-ca62e005-20260102-030405.md')
+    expect(remaining).not.toContain('dsh-session-ca62e005-20260101.zip')
+  })
+
   it('ignores files that are not plugin artifacts', async () => {
     const dir = await makeDir()
     await seedArtifact(dir, 'notes.md', 100)
@@ -118,6 +144,14 @@ describe('contract', () => {
     // prefix-escape: /safe dir vs /safe/dir2
     expect(checkPinnedDir({ pinnedDir: '/safe/dir' }, '/safe/dir2/out.md')).toContain('output contract')
     expect(checkPinnedDir(contract, undefined)).toBeUndefined()
+  })
+
+  it('checkPinnedDir rejects `..` traversal out of the pin', () => {
+    const contract = { pinnedDir: '/safe/dir' }
+    expect(checkPinnedDir(contract, '/safe/dir/../evil/x.md')).toContain('output contract')
+    // A `..` that lands back inside the pin is still inside the pin.
+    expect(checkPinnedDir(contract, '/safe/dir/sub/../x.md')).toBeUndefined()
+    expect(checkPinnedDir(contract, '/safe/dir/../../evil/x.md')).toContain('output contract')
   })
 
   it('describeContract lists all pins', () => {

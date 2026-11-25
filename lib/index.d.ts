@@ -36,6 +36,12 @@ declare function applyContract<C extends MaskableConfig>(contract: Contract, req
 declare function checkFormats(contract: Contract, requested: readonly ExportFormat[]): string | undefined;
 /**
  * Check a requested output path against the pinned directory.
+ *
+ * The requested path (not the config value) is resolved first, so `..`
+ * segments cannot smuggle a traversal past the prefix check; the boundary
+ * is a trailing separator (pin + sep), so `/safe/dir2` never counts as
+ * inside pin `/safe/dir`.
+ *
  * @returns An error string when the path escapes the pinned directory.
  */
 declare function checkPinnedDir(contract: Contract, outPath: string | undefined): string | undefined;

@@ -26,6 +26,7 @@ import {
   transcriptBasePath,
 } from './command.ts'
 import type { SessionTraceLike, TranscriptConfig } from './command.ts'
+import { applyContract, checkFormats, checkPinnedDir, describeContract, type Contract, type ExportFormat } from './contract.ts'
 import { renderMarkdown } from './render/markdown.ts'
 import { renderJson } from './render/json.ts'
 import { renderHtml } from './render/html.ts'
@@ -131,6 +132,16 @@ export function createExportTool(config?: TranscriptConfig, engine?: ExportEngin
       if (sessionIdRaw === '') return exportError(sessionIdRaw, format, 'session_id is required.')
       if (engine == null) return exportError(sessionIdRaw, format, 'no sessionQuery engine was wired into this plugin instance.')
 
+      // Output contract — same overlay + checks as /transcript: requireMask
+      // forces masking on, allowedFormats and pinnedDir reject violations.
+      const contract: Contract = config?.contract ?? {}
+      args = applyContract(contract, args)
+      const requestedFormat: ExportFormat = format === 'md' ? 'markdown' : format
+      const formatProblem = checkFormats(contract, [requestedFormat])
+      if (formatProblem !== undefined) {
+        return exportError(sessionIdRaw, format, `${formatProblem}\n${describeContract(contract)}`)
+      }
+
       let since: number | undefined
       if (args.last !== undefined && args.last !== '') {
         const bound = parseDurationBound(args.last)
@@ -176,6 +187,13 @@ export function createExportTool(config?: TranscriptConfig, engine?: ExportEngin
       const baseDir = config?.defaultDir ?? log.session.cwd ?? process.cwd()
       const base = transcriptBasePath(baseDir, sessionIdRaw)
       const path = `${base}.${format}`
+
+      // Contract directory pin — same check as /transcript, before any I/O.
+      const dirProblem = checkPinnedDir(contract, path)
+      if (dirProblem !== undefined) {
+        return exportError(sessionIdRaw, format, `${dirProblem}\n${describeContract(contract)}`)
+      }
+
       const content = format === 'md' ? renderMarkdown(input, config) : format === 'json' ? renderJson(input) : renderHtml(input, config)
       const outputs = [{ path, content }]
 

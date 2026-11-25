@@ -27,6 +27,7 @@ import type { ExportManifest } from './manifest.ts'
 import type { PricingConfig } from './types.ts'
 import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
+import { VERSION } from './version.ts'
 
 export const USAGE =
   'Usage: /transcript [path] [--id <sessionId>] [--out <path>] [--json] [--md] [--html] [--full] [--last <duration>] [--last-turns <n>] [--turn <n>] [--turns <a>:<b>] [--errors-only] [--mask] [--mask-hash] [--manifest] [--reproducible]'
@@ -404,8 +405,8 @@ export interface TranscriptConfig {
   readonly contract?: Contract
 }
 
-/** Generator identity stamped into every artifact and manifest. */
-export const GENERATOR = 'dsh-session-export v1.8.0'
+/** Generator identity stamped into every artifact and manifest (kept in lockstep with package.json via src/version.ts). */
+export const GENERATOR = `dsh-session-export v${VERSION}`
 
 /** Execute the /transcript command against the session-query seam. */
 export async function executeTranscript(

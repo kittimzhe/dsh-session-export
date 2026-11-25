@@ -9,7 +9,7 @@
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { buildEntries, id8, type TranscriptConfig } from './command.ts'
+import { buildEntries, GENERATOR, id8, type TranscriptConfig } from './command.ts'
 import { computeStats, formatStatsCard } from './stats.ts'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 
@@ -85,7 +85,7 @@ export async function executeStats(
   const stats = computeStats(buildEntries(events), config?.pricing)
 
   if (parsed.json === true) {
-    const payload = JSON.stringify({ generator: 'dsh-session-export v1.8.0', stats }, null, 2)
+    const payload = JSON.stringify({ generator: GENERATOR, stats }, null, 2)
     if (parsed.outPath !== undefined) {
       try {
         await atomicWriteFile(parsed.outPath, payload)

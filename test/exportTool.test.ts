@@ -8,6 +8,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { createExportTool, type ExportEngine } from '../src/exportTool.ts'
 import type { ExportToolResult } from '../src/exportTool.ts'
 import type { SessionTraceLike } from '../src/command.ts'
+import { VERSION } from '../src/version.ts'
 
 const T = 1_700_000_000_000
 
@@ -102,7 +103,7 @@ describe('transcript_export execute', () => {
     expect(md.written[0]).toMatch(/\.md$/)
     const json = await run(createExportTool({ defaultDir: dir }, makeEngine()), { session_id: 's-x', format: 'json' })
     expect(json.written[0]).toMatch(/\.json$/)
-    expect(JSON.parse(readFileSync(json.written[0]!, 'utf8')).generator).toContain('dsh-session-export v1.8.0')
+    expect(JSON.parse(readFileSync(json.written[0]!, 'utf8')).generator).toContain(`dsh-session-export v${VERSION}`)
   })
 
   it('masks secrets when asked and reports the mode', async () => {
@@ -122,7 +123,7 @@ describe('transcript_export execute', () => {
     expect(manifest.artifacts).toHaveLength(1)
     expect(manifest.artifacts[0].path).toBe(out.written[0])
     expect(manifest.mask.mode).toBe('off')
-    expect(manifest.generator).toContain('v1.8.0')
+    expect(manifest.generator).toContain(`v${VERSION}`)
   })
 
   it('never overwrites: repeated exports create distinct timestamped files', async () => {
@@ -160,5 +161,33 @@ describe('transcript_export execute', () => {
     await expect(
       tool.execute({} as never, { callId: 'c1', name: 'transcript_export', arguments: {}, signal: new AbortController().signal } as never),
     ).rejects.toThrow(/session_id/)
+  })
+})
+
+describe('transcript_export contract', () => {
+  it('requireMask forces masking even when the model did not ask for it', async () => {
+    const dir = tmpDefaultDir()
+    const out = await run(createExportTool({ defaultDir: dir, contract: { requireMask: true } }, makeEngine()), { session_id: 's-x', format: 'md' })
+    expect(out.error).toBeNull()
+    expect(out.maskMode).toBe('mask')
+    const md = readFileSync(out.written[0]!, 'utf8')
+    expect(md).toContain('[REDACTED]')
+    expect(md).not.toContain('abc123def456ghi789jkl')
+  })
+
+  it('rejects a disallowed format', async () => {
+    const dir = tmpDefaultDir()
+    const out = await run(createExportTool({ defaultDir: dir, contract: { allowedFormats: ['json'] } }, makeEngine()), { session_id: 's-x' })
+    expect(out.error).toContain('not allowed')
+    expect(out.error).toContain('formats: json')
+    expect(out.written).toEqual([])
+  })
+
+  it('rejects an output path outside the pinned dir', async () => {
+    const dir = tmpDefaultDir()
+    const out = await run(createExportTool({ defaultDir: dir, contract: { pinnedDir: `${dir}/evidence` } }, makeEngine()), { session_id: 's-x' })
+    expect(out.error).toContain('artifacts may only be written under')
+    expect(out.error).toContain(`${dir}/evidence`)
+    expect(out.written).toEqual([])
   })
 })

@@ -36,6 +36,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { atomicWriteFile } from './util/atomicWrite.ts'
 import { buildManifest, describeBinaryArtifact, renderManifest } from './manifest.ts'
+import { applyContract, checkFormats, checkPinnedDir, describeContract, type ExportFormat } from './contract.ts'
 
 /** /bundle = zip: no extra config beyond what /transcript and /archive already share. */
 export type BundleConfig = TranscriptConfig
@@ -136,10 +137,24 @@ export async function executeBundle(
 ): Promise<CommandResult> {
   const parsed = parseBundleArgs(invocation.rawInput)
   if (typeof parsed === 'string') return { kind: 'error', text: parsed }
-  const args = parsed
+  const contract = config?.contract ?? {}
+  const args = applyContract(contract, parsed)
 
   if (args.noTranscript && args.noArchive) {
     return { kind: 'error', text: 'At least one of transcript or archive is required.\n' + BUNDLE_USAGE }
+  }
+
+  // Contract format pin — same check as /transcript; --no-transcript requests
+  // no transcript formats, so the pin has nothing to reject.
+  const requestedFormats: ExportFormat[] = []
+  if (!args.noTranscript) {
+    if (args.json) requestedFormats.push('json')
+    if (args.html) requestedFormats.push('html')
+    if (!args.json && !args.html) requestedFormats.push('markdown')
+  }
+  const formatProblem = checkFormats(contract, requestedFormats)
+  if (formatProblem !== undefined) {
+    return { kind: 'error', text: `${formatProblem}\n${describeContract(contract)}` }
   }
 
   const sessionIdRaw = args.sessionId ?? invocation.agent.session.id
@@ -238,6 +253,12 @@ export async function executeBundle(
   const baseDir = config?.defaultDir ?? log.session.cwd ?? process.cwd()
   const outPath =
     args.outPath ?? `${baseDir}/dsh-transcripts/bundle-${id8(sessionIdRaw)}-${timestampSlug(Date.now())}.zip`
+
+  // Contract directory pin — same check as /transcript, before any I/O.
+  const dirProblem = checkPinnedDir(contract, outPath)
+  if (dirProblem !== undefined) {
+    return { kind: 'error', text: `${dirProblem}\n${describeContract(contract)}` }
+  }
 
   try {
     await mkdir(dirname(outPath), { recursive: true })

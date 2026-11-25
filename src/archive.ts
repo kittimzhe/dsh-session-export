@@ -17,6 +17,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import type { SessionLineageNode } from '@deepseek-ai/dsh-session-query'
 import { id8 } from './command.ts'
+import { VERSION } from './version.ts'
 import { parseDurationBound } from './util/duration.ts'
 import { atomicWriteBytes } from './util/atomicWrite.ts'
 import { buildZip } from './util/zip.ts'
@@ -41,7 +42,10 @@ export interface ArchiveConfig {
 }
 
 const TOOL = 'dsh-session-export'
-const TOOL_VERSION = '1.5.0'
+// toolVersion is provenance — WHICH build of this tool produced the ZIP —
+// not the archive format version (that is `schemaVersion` above). It is
+// kept in lockstep with package.json via src/version.ts (guard-tested).
+const TOOL_VERSION = VERSION
 
 interface ArchiveManifest {
   readonly schemaVersion: 1
